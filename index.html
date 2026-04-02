@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>mAii MV Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
 <script>
 window._mp4Supported = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/mp4;codecs=avc1');
 </script>
@@ -38,7 +40,6 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
   #preview-wrap {
     position:relative;
     width:100%;
-    padding-top:56.25%;
   }
   #side-panel {
     overflow-y:auto;
@@ -48,7 +49,9 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 }
 
 /* プレビュー内部 */
-#preview-wrap { position:relative; background:#000; overflow:hidden; }
+#preview-wrap { position:relative; background:#000; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+#main-canvas, #fx-canvas { position:absolute; top:0; left:0; }
+#lyric-overlay { position:absolute; left:0; right:0; text-align:center; pointer-events:none; z-index:15; }
 @media (max-width:600px) {
   #preview-wrap { position:relative; }
 }
@@ -131,7 +134,7 @@ input[type=range]::-webkit-slider-thumb {
   border-radius:50%; background:var(--accent); cursor:pointer;
 }
 
-/* 録画セクション */
+/* Recordセクション */
 .rec-section { padding:14px; border-bottom:1px solid var(--border); }
 .rec-title { display:block; font-size:9px; letter-spacing:0.35em; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
 .rec-status { font-size:11px; color:var(--muted); margin-bottom:6px; min-height:14px; display:block; }
@@ -148,6 +151,68 @@ input[type=range]::-webkit-slider-thumb {
 .img-btn-style { display:block; width:100%; background:none; border:1px solid var(--border); color:var(--muted); border-radius:4px; padding:9px; font-size:11px; cursor:pointer; font-family:inherit; }
 .img-btn-style:hover { border-color:var(--accent); color:var(--accent); }
 #convert-status { font-size:10px; color:var(--muted); display:block; margin-bottom:6px; min-height:13px; }
+
+/* タブ */
+#tab-bar { display:flex; border-bottom:1px solid var(--border); }
+.tab-btn { flex:1; padding:11px 4px; font-size:10px; letter-spacing:0.1em; color:var(--muted); background:none; border:none; cursor:pointer; font-family:inherit; border-bottom:2px solid transparent; transition:color 0.2s,border-color 0.2s; }
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+
+/* キャンバスサイズボタン */
+.canvas-size-btn { flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--muted); border-radius:4px; padding:6px; font-size:11px; cursor:pointer; font-family:inherit; transition:all 0.15s; }
+.canvas-size-btn:hover { border-color:var(--accent); color:var(--text); }
+.canvas-size-btn.active { background:rgba(200,169,110,0.15); border-color:var(--accent); color:var(--accent); }
+
+/* 音声・歌詞セクション */
+.av-section { padding:14px; border-bottom:1px solid var(--border); }
+.av-title { display:block; font-size:9px; letter-spacing:0.35em; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
+.av-drop { border:1px dashed rgba(255,255,255,0.15); border-radius:4px; padding:10px; text-align:center; cursor:pointer; margin-bottom:8px; transition:border-color 0.2s,background 0.2s; }
+.av-drop:hover,.av-drop.dragover { border-color:var(--accent); background:rgba(200,169,110,0.06); }
+.av-drop span { font-size:10px; color:var(--muted); display:block; }
+.av-loaded { font-size:10px; color:var(--accent); margin-bottom:6px; display:none; }
+.av-btn { display:block; width:100%; border:none; border-radius:4px; padding:8px; font-size:11px; letter-spacing:0.08em; cursor:pointer; font-family:inherit; margin-bottom:6px; color:#fff; }
+.av-btn:disabled { background:rgba(255,255,255,0.06)!important; color:var(--muted); cursor:default; }
+.av-row { display:flex; gap:6px; margin-bottom:6px; }
+.av-time { font-size:10px; color:var(--muted); text-align:center; margin-bottom:4px; }
+.av-sl-label { font-size:10px; color:var(--muted); margin-bottom:3px; display:flex; justify-content:space-between; }
+
+/* 歌詞オーバーレイ */
+#lyric-overlay { position:absolute; left:0; right:0; text-align:center; pointer-events:none; z-index:15; padding:0 5%; }
+#lyric-line { display:inline-block; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,0.9),0 0 30px rgba(0,0,0,0.6); letter-spacing:0.12em; line-height:1.6; white-space:pre-wrap; }
+
+/* LRCエディター モーダル */
+#lrc-modal { display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.88); overflow-y:auto; }
+#lrc-modal-inner { max-width:660px; margin:24px auto; background:#13131a; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:20px; font-family:Georgia,serif; }
+.lrc-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.lrc-modal-head span { font-size:12px; letter-spacing:0.2em; color:var(--accent); }
+.lrc-close-btn { background:none; border:1px solid rgba(255,255,255,0.15); color:var(--muted); border-radius:4px; padding:4px 10px; cursor:pointer; font-size:11px; }
+.lrc-hint { font-size:10px; color:var(--muted); margin-bottom:8px; line-height:1.6; }
+.lrc-hint kbd { background:rgba(255,255,255,0.1); border-radius:3px; padding:1px 5px; }
+#lrc-textarea { width:100%; height:190px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); color:var(--text); border-radius:4px; padding:10px; font-size:12px; font-family:Georgia,serif; resize:vertical; line-height:1.8; }
+.lrc-ctrl { background:rgba(255,255,255,0.03); border-radius:4px; padding:10px; margin-bottom:10px; }
+.lrc-ctrl-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+.lrc-play-btn { background:rgba(60,80,140,0.85); border:none; color:#fff; border-radius:4px; padding:7px 14px; font-size:12px; cursor:pointer; font-family:inherit; min-width:44px; }
+.lrc-smol-btn { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:var(--muted); border-radius:4px; padding:6px 10px; font-size:11px; cursor:pointer; font-family:inherit; }
+.lrc-smol-btn:hover { border-color:var(--accent); color:var(--accent); }
+#lrc-cur-time { font-size:11px; color:var(--muted); margin-left:auto; font-family:monospace; }
+#lrc-lines-wrap { max-height:340px; overflow-y:auto; margin-bottom:10px; border:1px solid rgba(255,255,255,0.06); border-radius:4px; }
+.lrc-line-row { display:flex; align-items:center; gap:10px; padding:9px 12px; border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer; transition:background 0.1s; }
+.lrc-line-row:last-child { border-bottom:none; }
+.lrc-line-row:hover { background:rgba(255,255,255,0.04); }
+.lrc-line-row.selected { background:rgba(200,169,110,0.1); }
+.lrc-line-row.active { background:rgba(200,169,110,0.18); }
+.lrc-line-num { font-size:10px; color:rgba(255,255,255,0.2); width:20px; text-align:right; flex-shrink:0; font-family:monospace; }
+.lrc-line-row.active .lrc-line-num { color:var(--accent); }
+.lrc-line-text { font-size:12px; flex:1; }
+.lrc-line-row.active .lrc-line-text { color:var(--accent); }
+.lrc-line-text.empty { color:rgba(255,255,255,0.2); font-style:italic; }
+.lrc-time-tag { font-size:10px; font-family:monospace; color:rgba(255,255,255,0.3); flex-shrink:0; cursor:pointer; padding:2px 6px; border-radius:3px; border:1px solid transparent; transition:all 0.15s; }
+.lrc-time-tag.has-time { color:rgba(255,255,255,0.45); border-color:rgba(255,255,255,0.1); }
+.lrc-time-tag.has-time:hover { color:var(--accent); border-color:rgba(200,169,110,0.4); background:rgba(200,169,110,0.08); }
+.lrc-line-row.selected .lrc-time-tag { color:var(--accent); border-color:rgba(200,169,110,0.5); background:rgba(200,169,110,0.1); }
+.lrc-footer { display:flex; gap:6px; flex-wrap:wrap; }
+.lrc-footer-btn { flex:1; min-width:80px; border-radius:4px; padding:8px; font-size:11px; cursor:pointer; font-family:inherit; border:none; color:#fff; }
 </style>
 </head>
 <body>
@@ -161,167 +226,314 @@ input[type=range]::-webkit-slider-thumb {
     <div id="countdown"><div id="countdown-inner"></div></div>
     <div id="drop-zone">
       <div id="drop-zone-inner">
-        <span class="icon">🖼</span>
-        <span>画像をドロップ または クリック</span>
+        <span>Drop image or click</span>
         <input type="file" id="file-input" accept="image/*" style="display:none">
       </div>
     </div>
+    <div id="lyric-overlay"><span id="lyric-line"></span></div>
   </div>
 
   <!-- サイドパネル -->
   <div id="side-panel">
 
-    <!-- KB -->
-    <div class="acc-item open" id="acc-kb">
-      <div class="acc-header">
-        <div class="acc-header-left"><span class="acc-title">🎬 ケン・バーンズ</span></div>
-        <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-kb')">▼</span></div>
-      </div>
-      <div class="acc-body">
-        <div class="sl-block"><div class="sl-header">ズーム<span class="sl-val" id="val-kb-zoom">1.08</span></div><input type="range" id="sl-kb-zoom" min="1.01" max="1.3" value="1.08" step="0.01"></div>
-        <div class="sl-block"><div class="sl-header">パン<span class="sl-val" id="val-kb-pan">1.0</span></div><input type="range" id="sl-kb-pan" min="0" max="3" value="1.0" step="0.1"></div>
-        <div class="sl-block"><div class="sl-header">速さ（秒）<span class="sl-val" id="val-kb-dur">40</span></div><input type="range" id="sl-kb-dur" min="10" max="120" value="40" step="5"></div>
-      </div>
+    <!-- タブバー -->
+    <div id="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('tab-av')">Audio & Lyrics</button>
+      <button class="tab-btn" onclick="switchTab('tab-fx')">Effects</button>
     </div>
 
-    <!-- 雨粒 -->
-    <div class="acc-item" id="acc-rain">
-      <div class="acc-header">
-        <div class="acc-header-left">
-          <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-rain" checked><div class="toggle-track"></div></label>
-          <span class="acc-title" style="margin-left:8px;vertical-align:middle;">🌧 雨粒</span>
+    <!-- 音声 & 歌詞タブ -->
+    <div id="tab-av" class="tab-pane active">
+
+      <!-- 音声 & 歌詞 -->
+      <div class="av-section">
+        <div class="av-drop" id="audio-drop">
+          <span id="av-drop-label">Drop audio or video, or click</span>
+          <input type="file" id="audio-input" accept="audio/*,video/*" style="display:none">
         </div>
-        <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-rain')">▼</span></div>
-      </div>
-      <div class="acc-body">
-        <div class="sl-block"><div class="sl-header">量<span class="sl-val" id="val-rain">120</span></div><input type="range" id="sl-rain" min="20" max="300" value="120"></div>
-        <div class="sl-block"><div class="sl-header">大きさ<span class="sl-val" id="val-rain-size">2</span></div><input type="range" id="sl-rain-size" min="1" max="5" value="2" step="0.5"></div>
-      </div>
-    </div>
+        <div class="av-loaded" id="audio-loaded"><span id="audio-name"></span></div>
+        <div class="av-loaded" id="av-mode-label" style="color:var(--muted);font-size:10px;"></div>
 
-    <!-- 光の粒 -->
-    <div class="acc-item" id="acc-particle">
-      <div class="acc-header">
-        <div class="acc-header-left">
-          <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-particle" checked><div class="toggle-track"></div></label>
-          <span class="acc-title" style="margin-left:8px;vertical-align:middle;">✨ 光の粒</span>
+        <div class="av-row">
+          <button class="av-btn" id="play-btn" style="flex:2;background:rgba(60,80,140,0.85);" disabled>Play</button>
+          <button class="av-btn" id="rewind-btn" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:var(--muted);font-size:10px;" disabled>↺ 5s</button>
         </div>
-        <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-particle')">▼</span></div>
-      </div>
-      <div class="acc-body">
-        <div class="sl-block"><div class="sl-header">量<span class="sl-val" id="val-particle">70</span></div><input type="range" id="sl-particle" min="10" max="200" value="70"></div>
-      </div>
-    </div>
+        <input type="range" id="main-seek" min="0" max="100" value="0" step="0.1" style="width:100%;margin-bottom:4px;" disabled>
+        <div class="av-time" id="time-display">--:-- / --:--</div>
 
-    <!-- 星くず -->
-    <div class="acc-item" id="acc-stars">
-      <div class="acc-header">
-        <div class="acc-header-left">
-          <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-stars"><div class="toggle-track"></div></label>
-          <span class="acc-title" style="margin-left:8px;vertical-align:middle;">🌟 星くず</span>
+        <div class="av-row" style="margin-top:8px;">
+          <button class="av-btn" id="open-editor-btn" style="flex:1;background:rgba(80,60,120,0.85);">LRC Editor</button>
+          <button class="av-btn" id="lrc-load-btn" style="flex:1;background:rgba(40,60,80,0.85);">Load LRC</button>
+          <input type="file" id="lrc-input" accept=".lrc,.txt" style="display:none">
         </div>
-        <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-stars')">▼</span></div>
-      </div>
-      <div class="acc-body">
-        <div class="sl-block"><div class="sl-header">強度<span class="sl-val" id="val-star-intensity">60</span></div><input type="range" id="sl-star-intensity" min="0" max="100" value="60"></div>
-      </div>
-    </div>
+        <div class="av-loaded" id="lrc-loaded"><span id="lrc-info"></span></div>
 
-    <!-- 霧 -->
-    <div class="acc-item" id="acc-fog">
-      <div class="acc-header">
-        <div class="acc-header-left">
-          <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-fog" checked><div class="toggle-track"></div></label>
-          <span class="acc-title" style="margin-left:8px;vertical-align:middle;">🌫 霧</span>
+        <div style="margin-top:10px;padding:0 14px 14px;">
+          <div class="av-sl-label"><span>Lyric size</span><span id="val-lyric-size">100%</span></div>
+          <input type="range" id="sl-lyric-size" min="50" max="200" value="100" style="width:100%;margin-bottom:6px;">
+          <div class="av-sl-label"><span>Position</span><span id="val-lyric-pos">80%</span></div>
+          <input type="range" id="sl-lyric-pos" min="5" max="90" value="80" style="width:100%;margin-bottom:6px;">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+            <span style="font-size:10px;color:var(--muted);">Color</span>
+            <input type="color" id="lyric-color" value="#ffffff" style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;">
+            <span style="font-size:10px;color:var(--muted);">Shadow</span>
+            <input type="color" id="lyric-shadow" value="#000000" style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;">
+          </div>
+          <select id="lyric-font" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:4px;font-size:10px;cursor:pointer;">
+            <option value="'Noto Serif JP', Georgia, serif">Serif JP (明朝)</option>
+            <option value="Georgia,serif">Serif (Georgia)</option>
+            <option value="sans-serif">Sans-serif</option>
+          </select>
         </div>
-        <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-fog')">▼</span></div>
       </div>
-      <div class="acc-body">
-        <div class="sl-block"><div class="sl-header">濃さ<span class="sl-val" id="val-fog-intensity">50</span></div><input type="range" id="sl-fog-intensity" min="0" max="100" value="50"></div>
-      </div>
-    </div>
 
-    <!-- 雲 -->
-    <div class="acc-item" id="acc-cloud">
-      <div class="acc-header">
-        <div class="acc-header-left">
-          <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-cloud" checked><div class="toggle-track"></div></label>
-          <span class="acc-title" style="margin-left:8px;vertical-align:middle;">☁️ 雲</span>
+      <!-- Record -->
+      <div class="rec-section">
+        <span class="rec-title">Record</span>
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
+          <button class="canvas-size-btn active" data-w="1920" data-h="1080" onclick="setCanvasSize(1920,1080,this)">16:9</button>
+          <button class="canvas-size-btn" data-w="1080" data-h="1920" onclick="setCanvasSize(1080,1920,this)">9:16</button>
+          <button class="canvas-size-btn" data-w="1080" data-h="1080" onclick="setCanvasSize(1080,1080,this)">1:1</button>
         </div>
-        <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-cloud')">▼</span></div>
-      </div>
-      <div class="acc-body">
-        <div class="sl-block"><div class="sl-header">濃さ<span class="sl-val" id="val-cloud-intensity">50</span></div><input type="range" id="sl-cloud-intensity" min="0" max="100" value="50"></div>
-      </div>
-    </div>
-
-    <!-- グレイン -->
-    <div class="acc-item" id="acc-grain">
-      <div class="acc-header">
-        <div class="acc-header-left">
-          <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-grain" checked><div class="toggle-track"></div></label>
-          <span class="acc-title" style="margin-left:8px;vertical-align:middle;">🎞 グレイン</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:10px;color:var(--muted);flex-shrink:0;">BG</span>
+          <select id="bg-fill-mode" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:4px;font-size:10px;cursor:pointer;">
+            <option value="black">Black</option>
+            <option value="color">Color</option>
+            <option value="none">None (transparent)</option>
+          </select>
+          <input type="color" id="bg-fill-color" value="#1a1a2e" style="width:28px;height:28px;border-radius:3px;border:1px solid var(--border);cursor:pointer;display:none;">
         </div>
-        <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-grain')">▼</span></div>
-      </div>
-      <div class="acc-body">
-        <div class="sl-block"><div class="sl-header">強度<span class="sl-val" id="val-grain">18</span></div><input type="range" id="sl-grain" min="0" max="50" value="18"></div>
-      </div>
-    </div>
-
-    <!-- 光の呼吸 -->
-    <div class="acc-item" id="acc-glow">
-      <div class="acc-header">
-        <div class="acc-header-left">
-          <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-glow" checked><div class="toggle-track"></div></label>
-          <span class="acc-title" style="margin-left:8px;vertical-align:middle;">💡 光の呼吸</span>
+        <div class="sl-block" style="padding:0 0 10px;">
+          <div class="sl-header">Image padding (top/bottom)<span class="sl-val" id="val-bg-padding">0%</span></div>
+          <input type="range" id="sl-bg-padding" min="0" max="40" value="0" step="1">
         </div>
-        <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-glow')">▼</span></div>
-      </div>
-      <div class="acc-body">
-        <div class="sl-block"><div class="sl-header">強度<span class="sl-val" id="val-glow">50</span></div><input type="range" id="sl-glow" min="0" max="100" value="50"></div>
-      </div>
-    </div>
-
-    <!-- 揺らぎ -->
-    <div class="acc-item" id="acc-warp">
-      <div class="acc-header">
-        <div class="acc-header-left">
-          <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-warp"><div class="toggle-track"></div></label>
-          <span class="acc-title" style="margin-left:8px;vertical-align:middle;">🌊 揺らぎ</span>
+        <span class="rec-status" id="rec-status">Ready</span>
+        <div class="rec-progress"><div id="rec-bar"></div></div>
+        <button id="rec-btn" class="rec-btn-style" disabled>● REC (Loop)</button>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <label class="toggle-wrap"><input type="checkbox" id="mv-audio-toggle" checked><div class="toggle-track"></div></label>
+          <span style="font-size:10px;color:var(--muted);">With audio</span>
         </div>
-        <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-warp')">▼</span></div>
+        <button id="mv-rec-btn" class="rec-btn-style" style="background:rgba(80,40,120,0.85);" disabled>Record MV</button>
+        <span id="convert-status"></span>
+        <button id="mp4-btn" class="mp4-btn-style" style="display:none" disabled>Convert to MP4</button>
+        <button id="change-img-btn" class="img-btn-style">Change image</button>
       </div>
-      <div class="acc-body">
-        <div class="sl-block"><div class="sl-header">強度<span class="sl-val" id="val-warp-intensity">50</span></div><input type="range" id="sl-warp-intensity" min="0" max="100" value="50"></div>
-      </div>
-    </div>
 
-    <!-- 録画 -->
-    <div class="rec-section">
-      <span class="rec-title">録画</span>
-      <span class="rec-status" id="rec-status">準備完了</span>
-      <div class="rec-progress"><div id="rec-bar"></div></div>
-      <button id="rec-btn" class="rec-btn-style" disabled>● REC</button>
-      <span id="convert-status"></span>
-      <button id="mp4-btn" class="mp4-btn-style" style="display:none" disabled>▶ MP4変換</button>
-      <button id="change-img-btn" class="img-btn-style">🖼 画像変更</button>
-    </div>
+    </div><!-- /tab-av -->
+
+    <!-- エフェクトタブ -->
+    <div id="tab-fx" class="tab-pane">
+
+      <!-- KB -->
+      <div class="acc-item open" id="acc-kb">
+        <div class="acc-header">
+          <div class="acc-header-left"><span class="acc-title">Ken Burns</span></div>
+          <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-kb')">▼</span></div>
+        </div>
+        <div class="acc-body">
+          <div class="sl-block"><div class="sl-header">Zoom<span class="sl-val" id="val-kb-zoom">1.08</span></div><input type="range" id="sl-kb-zoom" min="1.01" max="1.3" value="1.08" step="0.01"></div>
+          <div class="sl-block"><div class="sl-header">Pan<span class="sl-val" id="val-kb-pan">1.0</span></div><input type="range" id="sl-kb-pan" min="0" max="3" value="1.0" step="0.1"></div>
+          <div class="sl-block"><div class="sl-header">Speed (sec)<span class="sl-val" id="val-kb-dur">40</span></div><input type="range" id="sl-kb-dur" min="10" max="120" value="40" step="5"></div>
+        </div>
+      </div>
+
+      <!-- 雨粒 -->
+      <div class="acc-item" id="acc-rain">
+        <div class="acc-header">
+          <div class="acc-header-left">
+            <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-rain" checked><div class="toggle-track"></div></label>
+            <span class="acc-title" style="margin-left:8px;vertical-align:middle;">Rain</span>
+          </div>
+          <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-rain')">▼</span></div>
+        </div>
+        <div class="acc-body">
+          <div class="sl-block"><div class="sl-header">Amount<span class="sl-val" id="val-rain">120</span></div><input type="range" id="sl-rain" min="20" max="300" value="120"></div>
+          <div class="sl-block"><div class="sl-header">Size<span class="sl-val" id="val-rain-size">2</span></div><input type="range" id="sl-rain-size" min="1" max="5" value="2" step="0.5"></div>
+        </div>
+      </div>
+
+      <!-- 光の粒 -->
+      <div class="acc-item" id="acc-particle">
+        <div class="acc-header">
+          <div class="acc-header-left">
+            <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-particle" checked><div class="toggle-track"></div></label>
+            <span class="acc-title" style="margin-left:8px;vertical-align:middle;">Particles</span>
+          </div>
+          <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-particle')">▼</span></div>
+        </div>
+        <div class="acc-body">
+          <div class="sl-block"><div class="sl-header">Amount<span class="sl-val" id="val-particle">70</span></div><input type="range" id="sl-particle" min="10" max="200" value="70"></div>
+        </div>
+      </div>
+
+      <!-- 星くず -->
+      <div class="acc-item" id="acc-stars">
+        <div class="acc-header">
+          <div class="acc-header-left">
+            <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-stars"><div class="toggle-track"></div></label>
+            <span class="acc-title" style="margin-left:8px;vertical-align:middle;">Stars</span>
+          </div>
+          <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-stars')">▼</span></div>
+        </div>
+        <div class="acc-body">
+          <div class="sl-block"><div class="sl-header">Intensity<span class="sl-val" id="val-star-intensity">60</span></div><input type="range" id="sl-star-intensity" min="0" max="100" value="60"></div>
+        </div>
+      </div>
+
+      <!-- 霧 -->
+      <div class="acc-item" id="acc-fog">
+        <div class="acc-header">
+          <div class="acc-header-left">
+            <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-fog" checked><div class="toggle-track"></div></label>
+            <span class="acc-title" style="margin-left:8px;vertical-align:middle;">Fog</span>
+          </div>
+          <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-fog')">▼</span></div>
+        </div>
+        <div class="acc-body">
+          <div class="sl-block"><div class="sl-header">Density<span class="sl-val" id="val-fog-intensity">50</span></div><input type="range" id="sl-fog-intensity" min="0" max="100" value="50"></div>
+        </div>
+      </div>
+
+      <!-- 雲 -->
+      <div class="acc-item" id="acc-cloud">
+        <div class="acc-header">
+          <div class="acc-header-left">
+            <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-cloud" checked><div class="toggle-track"></div></label>
+            <span class="acc-title" style="margin-left:8px;vertical-align:middle;">Clouds</span>
+          </div>
+          <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-cloud')">▼</span></div>
+        </div>
+        <div class="acc-body">
+          <div class="sl-block"><div class="sl-header">Density<span class="sl-val" id="val-cloud-intensity">50</span></div><input type="range" id="sl-cloud-intensity" min="0" max="100" value="50"></div>
+        </div>
+      </div>
+
+      <!-- グレイン -->
+      <div class="acc-item" id="acc-grain">
+        <div class="acc-header">
+          <div class="acc-header-left">
+            <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-grain" checked><div class="toggle-track"></div></label>
+            <span class="acc-title" style="margin-left:8px;vertical-align:middle;">Film grain</span>
+          </div>
+          <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-grain')">▼</span></div>
+        </div>
+        <div class="acc-body">
+          <div class="sl-block"><div class="sl-header">Intensity<span class="sl-val" id="val-grain">18</span></div><input type="range" id="sl-grain" min="0" max="50" value="18"></div>
+        </div>
+      </div>
+
+      <!-- 光の呼吸 -->
+      <div class="acc-item" id="acc-glow">
+        <div class="acc-header">
+          <div class="acc-header-left">
+            <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-glow" checked><div class="toggle-track"></div></label>
+            <span class="acc-title" style="margin-left:8px;vertical-align:middle;">Glow</span>
+          </div>
+          <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-glow')">▼</span></div>
+        </div>
+        <div class="acc-body">
+          <div class="sl-block"><div class="sl-header">Intensity<span class="sl-val" id="val-glow">50</span></div><input type="range" id="sl-glow" min="0" max="100" value="50"></div>
+        </div>
+      </div>
+
+      <!-- 揺らぎ -->
+      <div class="acc-item" id="acc-warp">
+        <div class="acc-header">
+          <div class="acc-header-left">
+            <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-warp"><div class="toggle-track"></div></label>
+            <span class="acc-title" style="margin-left:8px;vertical-align:middle;">Warp</span>
+          </div>
+          <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-warp')">▼</span></div>
+        </div>
+        <div class="acc-body">
+          <div class="sl-block"><div class="sl-header">Intensity<span class="sl-val" id="val-warp-intensity">50</span></div><input type="range" id="sl-warp-intensity" min="0" max="100" value="50"></div>
+        </div>
+      </div>
+
+      <!-- Vignette -->
+      <div class="acc-item open" id="acc-vignette">
+        <div class="acc-header">
+          <div class="acc-header-left">
+            <label class="toggle-wrap" onclick="event.stopPropagation()"><input type="checkbox" id="fx-vignette" checked><div class="toggle-track"></div></label>
+            <span class="acc-title" style="margin-left:8px;vertical-align:middle;">Vignette</span>
+          </div>
+          <div class="acc-header-right"><span class="acc-chevron" onclick="accToggle('acc-vignette')">▼</span></div>
+        </div>
+        <div class="acc-body">
+          <div class="sl-block"><div class="sl-header">Intensity<span class="sl-val" id="val-vignette">80</span></div><input type="range" id="sl-vignette" min="0" max="100" value="80"></div>
+        </div>
+      </div>
+
+    </div><!-- /tab-fx -->
 
   </div><!-- /side-panel -->
 </div><!-- /app -->
 
+<!-- LRCエディター -->
+<div id="lrc-modal">
+  <div id="lrc-modal-inner">
+    <div class="lrc-modal-head">
+      <span>LRC Editor</span>
+      <button class="lrc-close-btn" id="lrc-close-btn">✕ Close</button>
+    </div>
+
+    <!-- Step1: 歌詞入力 -->
+    <div id="lrc-step1">
+      <p class="lrc-hint">Paste lyrics, one line per row. Blank lines = instrumental break.</p>
+      <textarea id="lrc-textarea" placeholder="I was dreaming of spring&#10;I heard your voice&#10;&#10;In the fading light"></textarea>
+      <button class="av-btn" id="lrc-to-step2" style="margin-top:10px;background:rgba(200,169,110,0.2);border:1px solid var(--accent);color:var(--accent);">Next → Set timing</button>
+    </div>
+
+    <!-- Step2: タイミング設定 -->
+    <div id="lrc-step2" style="display:none;">
+      <div class="lrc-ctrl">
+        <div class="lrc-ctrl-row">
+          <button class="lrc-play-btn" id="lrc-play-btn">▶</button>
+          <button class="lrc-smol-btn" id="lrc-rewind-btn">↺ 3s</button>
+          <span id="lrc-cur-time" style="font-size:13px;font-family:monospace;color:var(--text);margin-left:4px;">0:00</span>
+          <span style="font-size:10px;color:var(--muted);margin-left:auto;" id="lrc-total-time"></span>
+        </div>
+        <input type="range" id="lrc-seek" min="0" max="100" value="0" step="0.1" style="width:100%;">
+      </div>
+      <p class="lrc-hint">
+        Click row → jump to position / Click timestamp → select row<br>
+        Selected row: <kbd>Space</kbd> → stamp /  <kbd>P</kbd> or <kbd>Enter</kbd> → play/stop
+      </p>
+      <div id="lrc-lines-wrap"></div>
+      <div class="lrc-footer">
+        <button class="lrc-footer-btn" id="lrc-back-btn" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);">← Edit lyrics</button>
+        <button class="lrc-footer-btn" id="lrc-reset-btn" style="background:rgba(100,30,30,0.6);border:1px solid rgba(180,60,60,0.4);">↺ Clear</button>
+        <button class="lrc-footer-btn" id="lrc-dl-btn" style="background:rgba(40,80,120,0.85);">⬇ Save LRC</button>
+        <button class="lrc-footer-btn" id="lrc-apply-btn" style="flex:2;background:rgba(40,120,70,0.85);">✓ Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 function accToggle(id){ document.getElementById(id).classList.toggle('open'); }
+
+function switchTab(tabId){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    if(b.getAttribute('onclick').includes(tabId)) b.classList.add('active');
+  });
+}
 
 const state = {
   rain:true, particle:true, grain:true, glow:true,
   fog:true, cloud:true, stars:false, warp:false,
+  vignette:true,
   rainCount:120, rainSize:2, particleCount:70, particleSize:3,
   grainOpacity:18, glowIntensity:50,
   fogIntensity:50, cloudIntensity:50,
   starCount:80, starIntensity:60,
   warpIntensity:50,
+  vignetteIntensity:80,
 };
 
 const wrap           = document.getElementById('preview-wrap');
@@ -383,6 +595,7 @@ bindToggle('fx-fog','fog',null);
 bindToggle('fx-cloud','cloud',null);
 bindToggle('fx-stars','stars',null);
 bindToggle('fx-warp','warp',v=>{if(!v)wrap.style.filter='';});
+bindToggle('fx-vignette','vignette',null);
 
 // スライダー
 function bindSlider(id,valId,key,cb){
@@ -398,6 +611,7 @@ bindSlider('sl-fog-intensity','val-fog-intensity','fogIntensity',null);
 bindSlider('sl-cloud-intensity','val-cloud-intensity','cloudIntensity',null);
 bindSlider('sl-star-intensity','val-star-intensity','starIntensity',null);
 bindSlider('sl-warp-intensity','val-warp-intensity','warpIntensity',null);
+bindSlider('sl-vignette','val-vignette','vignetteIntensity',null);
 
 // KB
 let kbZoom=1.08,kbPan=1.0,KB_DURATION=40000;
@@ -423,15 +637,68 @@ function getKBTransform(p){
 }
 
 // Canvas resize
+// キャンバスの論理サイズ（録画・描画の基準）
+let canvasW = 1920, canvasH = 1080;
+
+function setCanvasSize(w, h, btn){
+  canvasW = w; canvasH = h;
+  document.querySelectorAll('.canvas-size-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  resizeCanvases();
+  initRain();initParticles();initFog();initClouds();initStars();
+}
+
 function resizeCanvases(){
-  const isPC=window.innerWidth>600;
-  const pw=isPC?Math.round(window.innerWidth*0.8):window.innerWidth;
-  const ph=isPC?window.innerHeight:Math.round(window.innerWidth*9/16);
-  const w=Math.round(pw/2)*2;
-  const h=Math.round(ph/2)*2;
-  mainCanvas.width=w; mainCanvas.height=h;
-  fxCanvas.width=w; fxCanvas.height=h;
-  wrap.style.width=w+'px'; wrap.style.height=h+'px';
+  const isPC = window.innerWidth > 600;
+  // プレビュー表示サイズ：論理サイズのアスペクト比を維持しつつウィンドウに収める
+  const panelW = isPC ? Math.round(window.innerWidth * 0.8) : window.innerWidth;
+  const panelH = isPC ? window.innerHeight : Math.round(window.innerWidth * 0.7);
+  const aspect = canvasW / canvasH;
+  let dispW, dispH;
+  if(panelW / panelH > aspect){
+    dispH = panelH;
+    dispW = Math.round(dispH * aspect);
+  } else {
+    dispW = panelW;
+    dispH = Math.round(dispW / aspect);
+  }
+  dispW = Math.round(dispW/2)*2;
+  dispH = Math.round(dispH/2)*2;
+
+  // canvasの実ピクセルは論理サイズ固定（録画と完全一致）
+  mainCanvas.width = canvasW; mainCanvas.height = canvasH;
+  fxCanvas.width = canvasW; fxCanvas.height = canvasH;
+
+  // wrapはパネル全体
+  wrap.style.width = panelW+'px';
+  wrap.style.height = (isPC ? window.innerHeight : dispH)+'px';
+
+  // canvasをwrap内中央に配置
+  const offsetX = Math.round((panelW - dispW) / 2);
+  const offsetY = isPC ? Math.round((window.innerHeight - dispH) / 2) : 0;
+  mainCanvas.style.width = dispW+'px'; mainCanvas.style.height = dispH+'px';
+  mainCanvas.style.left = offsetX+'px'; mainCanvas.style.top = offsetY+'px';
+  fxCanvas.style.width = dispW+'px'; fxCanvas.style.height = dispH+'px';
+  fxCanvas.style.left = offsetX+'px'; fxCanvas.style.top = offsetY+'px';
+
+  // 歌詞オーバーレイもプレビューサイズに合わせる
+  updateLyricOverlay();
+}
+
+function updateLyricOverlay(){
+  const line = document.getElementById('lyric-line');
+  const overlay = document.getElementById('lyric-overlay');
+  const dispH = parseInt(mainCanvas.style.height) || canvasH;
+  const dispW = parseInt(mainCanvas.style.width) || canvasW;
+  const offsetX = parseInt(mainCanvas.style.left) || 0;
+  const offsetY = parseInt(mainCanvas.style.top) || 0;
+  const scale = dispH / canvasH;
+  const fs = Math.round(Math.min(canvasW, canvasH) * 0.045 * (lrcState.size/100) * scale);
+  line.style.fontSize = Math.max(10, fs) + 'px';
+  overlay.style.left = offsetX + 'px';
+  overlay.style.width = dispW + 'px';
+  overlay.style.top = (offsetY + Math.round(dispH * lrcState.pos / 100)) + 'px';
+  overlay.style.transform = 'translateY(-50%)';
 }
 window.addEventListener('resize',()=>{resizeCanvases();initRain();initParticles();initFog();initClouds();initStars();});
 
@@ -446,15 +713,37 @@ function drawMain(ts){
   let progress;
   if(kbStart!==null){progress=((ts-kbStart)%KB_DURATION)/KB_DURATION;}
   else{animTime=(animTime+delta)%KB_DURATION;progress=animTime/KB_DURATION;}
-  const kb=getKBTransform(progress);
+  // 動画モードはケン・バーンズ無効（scaleとtxを固定）
+  const kb = isVideoMode ? {scale:1,tx:0,ty:0} : getKBTransform(progress);
   mctx.clearRect(0,0,W,H);
-  mctx.fillStyle='#000';mctx.fillRect(0,0,W,H);
-  if(bgImg.complete&&bgImg.naturalWidth>0){
+  // 背景色
+  const bgMode = document.getElementById('bg-fill-mode')?.value || 'black';
+  if(bgMode === 'black'){
+    mctx.fillStyle='#000'; mctx.fillRect(0,0,W,H);
+  } else if(bgMode === 'color'){
+    mctx.fillStyle = document.getElementById('bg-fill-color')?.value || '#000';
+    mctx.fillRect(0,0,W,H);
+  }
+  // パディング量（上下の帯）
+  const padPct = (parseInt(document.getElementById('sl-bg-padding')?.value)||0) / 100;
+  const padPx = Math.round(H * padPct); // 上下それぞれのpx
+  // 背景：動画モードならvideoElから、画像モードならbgImgから描画
+  // 描画領域は上下padPxを除いた中央エリア
+  const drawH = H - padPx * 2;
+  if(bgVideoEl && !bgVideoEl.paused || bgVideoEl && bgVideoEl.readyState >= 2){
+    const vw=bgVideoEl.videoWidth, vh=bgVideoEl.videoHeight;
+    if(vw>0&&vh>0){
+      const sc=Math.min(W/vw, drawH/vh);
+      const dw=vw*sc,dh=vh*sc;
+      const dx=(W-dw)/2, dy=padPx+(drawH-dh)/2;
+      mctx.drawImage(bgVideoEl,dx,dy,dw,dh);
+    }
+  } else if(bgImg.complete&&bgImg.naturalWidth>0){
     const iw=bgImg.naturalWidth,ih=bgImg.naturalHeight;
-    const sc=Math.min(W/iw,H/ih)*kb.scale;
+    const sc=Math.min(W/iw, drawH/ih)*kb.scale;
     const dw=iw*sc,dh=ih*sc;
     const dx=W/2+(W*kb.tx/100)-dw/2;
-    const dy=H/2+(H*kb.ty/100)-dh/2;
+    const dy=padPx+(drawH/2)+(drawH*kb.ty/100)-dh/2;
     mctx.drawImage(bgImg,dx,dy,dw,dh);
   }
   if(state.glow){
@@ -467,9 +756,13 @@ function drawMain(ts){
     grd.addColorStop(1,'rgba(255,220,150,0)');
     mctx.fillStyle=grd;mctx.fillRect(0,0,W,H);
   }
-  const vig=mctx.createRadialGradient(W*0.42,H*0.45,W*0.25,W*0.42,H*0.45,W*0.7);
-  vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(1,'rgba(0,0,0,0.8)');
-  mctx.fillStyle=vig;mctx.fillRect(0,0,W,H);
+  if(state.vignette){
+    const vi = state.vignetteIntensity/100;
+    const vig=mctx.createRadialGradient(W*0.5,H*0.5,W*0.2,W*0.5,H*0.5,W*0.75);
+    vig.addColorStop(0,'rgba(0,0,0,0)');
+    vig.addColorStop(1,`rgba(0,0,0,${vi})`);
+    mctx.fillStyle=vig;mctx.fillRect(0,0,W,H);
+  }
   if(state.warp&&W>0&&H>0){
     warpPhase+=0.008;
     const amp=(state.warpIntensity/100)*5;
@@ -625,7 +918,7 @@ requestAnimationFrame(()=>{
   requestAnimationFrame(()=>resizeCanvases());
 });
 
-// 録画
+// Record
 let mediaRecorder=null,recChunks=[],recTimer=null,recRaf=null,lastWebmBlob=null;
 
 recBtn.addEventListener('click',()=>{
@@ -637,10 +930,10 @@ function startCountdown(){
   recBtn.disabled=true;
   let count=3;
   countdownInner.textContent=count;countdown.style.opacity='1';
-  setRecStatus(`${count}秒後に録画開始…`);
+  setRecStatus(`${count}秒後にRecord開始…`);
   const tick=setInterval(()=>{
     count--;
-    if(count>0){countdownInner.textContent=count;setRecStatus(`${count}秒後に録画開始…`);}
+    if(count>0){countdownInner.textContent=count;setRecStatus(`${count}秒後にRecord開始…`);}
     else{clearInterval(tick);countdown.style.opacity='0';startRec();}
   },1000);
 }
@@ -657,6 +950,18 @@ function startRec(){
       octx.clearRect(0,0,W,H);
       octx.drawImage(mainCanvas,0,0);
       octx.drawImage(fxCanvas,0,0);
+      // 歌詞をcanvasに合成
+      const txt = document.getElementById('lyric-line').textContent;
+      if(txt){
+        const fs = Math.round(Math.min(W,H)*0.045*(lrcState.size/100));
+        octx.save();
+        octx.font=`${fs}px ${lrcState.font}`;
+        octx.textAlign='center'; octx.textBaseline='middle';
+        octx.shadowColor=lrcState.shadow; octx.shadowBlur=18;
+        octx.fillStyle=lrcState.color;
+        octx.fillText(txt, W/2, H*(lrcState.pos/100));
+        octx.restore();
+      }
       compRaf=requestAnimationFrame(compose);
     }
     compose();
@@ -677,7 +982,7 @@ function startRec(){
       a.href=url;a.download=`mAii_loop.${ext}`;a.click();
       URL.revokeObjectURL(url);
       setRecBtn('● REC','',false);
-      setRecStatus(isMP4?'✅ MP4録画完了！':'✅ webm完了！MP4変換できます');
+      setRecStatus(isMP4?'MP4Record完了！':'webm完了！MP4変換できます');
       setRecBar(0);
       lastWebmBlob=isMP4?null:blob;
       mp4Btn.disabled=isMP4;
@@ -689,7 +994,7 @@ function startRec(){
     function updateBar(){
       const pct=Math.min(100,(Date.now()-recStart)/KB_DURATION*100);
       setRecBar(pct);
-      setRecStatus(`録画中… あと${Math.ceil((KB_DURATION-(Date.now()-recStart))/1000)}秒`);
+      setRecStatus(`Record中… あと${Math.ceil((KB_DURATION-(Date.now()-recStart))/1000)}秒`);
       if(pct<100)recRaf=requestAnimationFrame(updateBar);
     }
     updateBar();
@@ -707,8 +1012,8 @@ mp4Btn.addEventListener('click',convertToMp4);
 
 async function convertToMp4(){
   if(!lastWebmBlob){alert('先にRECしてください');return;}
-  mp4Btn.disabled=true;mp4Btn.textContent='変換中…';
-  setConvertStatus('変換中…');
+  mp4Btn.disabled=true;mp4Btn.textContent='Converting...';
+  setConvertStatus('Converting...');
   try{
     const W=mainCanvas.width,H=mainCanvas.height;
     const{Muxer,ArrayBufferTarget}=await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.7/+esm');
@@ -732,20 +1037,667 @@ async function convertToMp4(){
       fc2.drawImage(video,0,0,W,H);
       const vf=new VideoFrame(fc,{timestamp:Math.round(i/fps*1e6),duration:Math.round(1e6/fps)});
       encoder.encode(vf,{keyFrame:i%60===0});vf.close();
-      if(i%5===0)setConvertStatus(`変換中… ${Math.round(i/total*100)}%`);
+      if(i%5===0)setConvertStatus(`Converting... ${Math.round(i/total*100)}%`);
     }
     URL.revokeObjectURL(video.src);
     await encoder.flush();muxer.finalize();
     const a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([target.buffer],{type:'video/mp4'}));
     a.download='mAii_loop.mp4';a.click();
-    setConvertStatus('✅ MP4完了！');
-    mp4Btn.disabled=false;mp4Btn.textContent='▶ MP4変換';
+    setConvertStatus('MP4完了！');
+    mp4Btn.disabled=false;mp4Btn.textContent='Convert to MP4';
   }catch(e){
     console.error(e);setConvertStatus('❌ 変換失敗: '+e.message);
-    mp4Btn.disabled=false;mp4Btn.textContent='▶ MP4変換';
+    mp4Btn.disabled=false;mp4Btn.textContent='Convert to MP4';
   }
 }
+
+// ══════════════════════════════════════
+// 音声 & LRC 歌詞
+// ══════════════════════════════════════
+
+let audioEl = null;
+let lrcLines = [];   // [{time:秒, text:string}]  ← 再生表示用
+let editorLines = []; // [{time:秒|null, text:string}] ← エディター用
+let selectedIdx = -1;
+let editorRafId = null;
+let isSeeking = false;
+
+const lrcState = { size:100, pos:80, color:'#ffffff', shadow:'#000000', font:'Georgia,serif' };
+
+// ── 歌詞オーバーレイ（RAFで常時更新）──
+const lyricLine = document.getElementById('lyric-line');
+const lyricOverlay = document.getElementById('lyric-overlay');
+;(function lyricLoop(){
+  if(audioEl && lrcLines.length){
+    const t = audioEl.currentTime;
+    let cur = '';
+    for(const l of lrcLines){ if(l.time <= t) cur = l.text; else break; }
+    lyricLine.textContent = cur;
+  } else {
+    lyricLine.textContent = '';
+  }
+  requestAnimationFrame(lyricLoop);
+})();
+
+// フォントを確実に読み込む
+document.fonts.load("1em 'Noto Serif JP'").catch(()=>{});
+
+function applyLyricStyle(){
+  const line = document.getElementById('lyric-line');
+  line.style.color = lrcState.color;
+  line.style.fontFamily = lrcState.font;
+  line.style.textShadow = `0 2px 12px ${lrcState.shadow}cc,0 0 30px ${lrcState.shadow}99`;
+  line.style.letterSpacing = '0.12em';
+  line.style.lineHeight = '1.6';
+  line.style.whiteSpace = 'pre-wrap';
+  updateLyricOverlay();
+}
+applyLyricStyle();
+
+document.getElementById('sl-lyric-size').addEventListener('input', function(){ lrcState.size=+this.value; document.getElementById('val-lyric-size').textContent=this.value+'%'; applyLyricStyle(); });
+document.getElementById('sl-lyric-pos').addEventListener('input', function(){ lrcState.pos=+this.value; document.getElementById('val-lyric-pos').textContent=this.value+'%'; applyLyricStyle(); });
+document.getElementById('lyric-color').addEventListener('input', function(){ lrcState.color=this.value; applyLyricStyle(); });
+document.getElementById('lyric-shadow').addEventListener('input', function(){ lrcState.shadow=this.value; applyLyricStyle(); });
+document.getElementById('lyric-font').addEventListener('change', function(){ lrcState.font=this.value; applyLyricStyle(); });
+
+// 背景色モード切り替え
+document.getElementById('bg-fill-mode').addEventListener('change', function(){
+  document.getElementById('bg-fill-color').style.display = this.value === 'color' ? 'inline-block' : 'none';
+});
+document.getElementById('sl-bg-padding').addEventListener('input', function(){
+  document.getElementById('val-bg-padding').textContent = this.value + '%';
+});
+
+// ── メディア読み込み（audio / video 統合） ──
+let bgVideoEl = null; // 動画モード時のvideoElement
+let isVideoMode = false;
+
+function loadMediaFile(file){
+  const isVideo = file.type.startsWith('video/');
+  isVideoMode = isVideo;
+
+  // 既存のメディアをクリア
+  if(audioEl){ audioEl.pause(); URL.revokeObjectURL(audioEl.src); audioEl=null; }
+  if(bgVideoEl){ bgVideoEl.pause(); URL.revokeObjectURL(bgVideoEl.src); bgVideoEl=null; }
+
+  const url = URL.createObjectURL(file);
+
+  if(isVideo){
+    // 動画モード：bgVideoElで映像+音声を担当
+    bgVideoEl = document.createElement('video');
+    bgVideoEl.src = url;
+    bgVideoEl.loop = false;
+    bgVideoEl.muted = false;
+    bgVideoEl.playsInline = true;
+    bgVideoEl.preload = 'auto';
+    // audioElも同じvideoElを参照（再生コントロール・歌詞同期用）
+    audioEl = bgVideoEl;
+    document.getElementById('av-mode-label').textContent = 'Video mode — Ken Burns disabled';
+    document.getElementById('av-mode-label').style.display = 'block';
+    // 動画モードは音声あり固定
+    const toggle = document.getElementById('mv-audio-toggle');
+    toggle.checked = true;
+    toggle.disabled = true;
+  } else {
+    // 音声モード：従来通り
+    audioEl = new Audio(url);
+    bgVideoEl = null;
+    document.getElementById('av-mode-label').style.display = 'none';
+    // 音声モードはトグルを有効に戻す
+    const toggle = document.getElementById('mv-audio-toggle');
+    toggle.disabled = false;
+  }
+
+  audioEl.addEventListener('ended', ()=>{ document.getElementById('play-btn').textContent='Play'; });
+  document.getElementById('audio-name').textContent = file.name;
+  document.getElementById('audio-loaded').style.display = 'block';
+
+  const pb=document.getElementById('play-btn');
+  const rb=document.getElementById('rewind-btn');
+  const ms=document.getElementById('main-seek');
+  pb.disabled=false; rb.disabled=false; ms.disabled=false;
+  document.getElementById('mv-rec-btn').disabled=false;
+}
+
+const audioDrop = document.getElementById('audio-drop');
+const audioInput = document.getElementById('audio-input');
+audioDrop.addEventListener('click', ()=>audioInput.click());
+audioDrop.addEventListener('dragover', e=>{ e.preventDefault(); audioDrop.classList.add('dragover'); });
+audioDrop.addEventListener('dragleave', ()=>audioDrop.classList.remove('dragover'));
+audioDrop.addEventListener('drop', e=>{ e.preventDefault(); audioDrop.classList.remove('dragover'); if(e.dataTransfer.files[0]) loadMediaFile(e.dataTransfer.files[0]); });
+audioInput.addEventListener('change', e=>{ if(e.target.files[0]) loadMediaFile(e.target.files[0]); });
+
+// ── 再生コントロール ──
+document.getElementById('play-btn').addEventListener('click', ()=>{
+  if(!audioEl) return;
+  if(audioEl.paused){ audioEl.play(); document.getElementById('play-btn').textContent='Pause'; }
+  else { audioEl.pause(); document.getElementById('play-btn').textContent='Play'; }
+});
+document.getElementById('rewind-btn').addEventListener('click', ()=>{ if(audioEl) audioEl.currentTime=Math.max(0,audioEl.currentTime-5); });
+
+const mainSeek = document.getElementById('main-seek');
+mainSeek.addEventListener('mousedown', ()=>isSeeking=true);
+mainSeek.addEventListener('touchstart', ()=>isSeeking=true);
+mainSeek.addEventListener('mouseup', ()=>isSeeking=false);
+mainSeek.addEventListener('touchend', ()=>isSeeking=false);
+mainSeek.addEventListener('input', function(){ if(audioEl&&audioEl.duration) audioEl.currentTime=(this.value/100)*audioEl.duration; });
+
+// シークバー・時間表示（RAFループ）
+;(function seekLoop(){
+  if(audioEl){
+    const fmt=t=>{ const m=Math.floor(t/60),s=Math.floor(t%60); return `${m}:${String(s).padStart(2,'0')}`; };
+    document.getElementById('time-display').textContent=`${fmt(audioEl.currentTime)} / ${fmt(audioEl.duration||0)}`;
+    if(!isSeeking&&audioEl.duration) mainSeek.value=(audioEl.currentTime/audioEl.duration)*100;
+    const pb=document.getElementById('play-btn');
+    if(!audioEl.paused&&pb.textContent==='Play') pb.textContent='Pause';
+    if(audioEl.paused&&pb.textContent==='Pause') pb.textContent='Play';
+  }
+  requestAnimationFrame(seekLoop);
+})();
+
+// ── LRC パース ──
+function parseLRC(text){
+  const re = /\[(\d+):(\d+)[.:](\d+)\](.*)/;
+  const lines = [];
+  for(const row of text.split('\n')){
+    const m = row.match(re);
+    if(m){
+      const ms = m[3].length<=2 ? parseInt(m[3]) : Math.round(parseInt(m[3])/10);
+      lines.push({ time: parseInt(m[1])*60 + parseInt(m[2]) + ms/100, text: m[4].trim() });
+    }
+  }
+  return lines.sort((a,b)=>a.time-b.time);
+}
+function fmtTime(t){ if(!isFinite(t)||t===null) return '--:--'; const m=Math.floor(t/60),s=Math.floor(t%60); return `${m}:${String(s).padStart(2,'0')}`; }
+function fmtLRC(t){ const m=Math.floor(t/60),s=Math.floor(t%60),ms=Math.round((t%1)*100); return `[${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(2,'0')}]`; }
+
+// LRC読み込みをエディターにも反映
+function applyLRCToEditor(lines){
+  lrcLines = lines;
+  if(editorLines.length===0){
+    editorLines = lines.map(l=>({ time:l.time, text:l.text }));
+    document.getElementById('lrc-textarea').value = editorLines.map(l=>l.text).join('\n');
+  }
+  document.getElementById('lrc-info').textContent = `${lines.length}行`;
+  document.getElementById('lrc-loaded').style.display = 'block';
+}
+
+function loadLRC(file){
+  const reader = new FileReader();
+  reader.onload = e => applyLRCToEditor(parseLRC(e.target.result));
+  reader.readAsText(file,'UTF-8');
+}
+
+document.getElementById('lrc-load-btn').addEventListener('click', ()=>{
+  if(editorLines.length>0&&!confirm('Discard editor content and load new LRC?')) return;
+  editorLines=[];
+  document.getElementById('lrc-textarea').value='';
+  document.getElementById('lrc-input').click();
+});
+document.getElementById('lrc-input').addEventListener('change', e=>{ if(e.target.files[0]) loadLRC(e.target.files[0]); });
+
+// ── LRCエディター ──
+const lrcModal = document.getElementById('lrc-modal');
+
+function openEditor(){
+  lrcModal.style.display='block';
+  if(editorLines.length>0){
+    document.getElementById('lrc-step1').style.display='none';
+    document.getElementById('lrc-step2').style.display='block';
+    renderLines();
+    startEditorLoop();
+  } else {
+    document.getElementById('lrc-step1').style.display='block';
+    document.getElementById('lrc-step2').style.display='none';
+  }
+}
+function closeEditor(){
+  lrcModal.style.display='none';
+  if(editorRafId){ cancelAnimationFrame(editorRafId); editorRafId=null; }
+}
+
+document.getElementById('open-editor-btn').addEventListener('click', openEditor);
+document.getElementById('lrc-close-btn').addEventListener('click', closeEditor);
+
+document.getElementById('lrc-to-step2').addEventListener('click', ()=>{
+  const raw = document.getElementById('lrc-textarea').value;
+  if(!raw.trim()){ alert('Please enter lyrics'); return; }
+  if(!audioEl){ alert('Please load an audio file first'); return; }
+  const newTexts = raw.split('\n');
+
+  // 既存のeditorLinesからテキスト→タイムの対応表を作る
+  // 同じテキストが複数ある場合はFIFO（使った順に消費）
+  const timeMap = new Map();
+  for(const line of editorLines){
+    if(line.time === null) continue;
+    if(!timeMap.has(line.text)) timeMap.set(line.text, []);
+    timeMap.get(line.text).push(line.time);
+  }
+
+  editorLines = newTexts.map(t => {
+    const queue = timeMap.get(t);
+    const time = (queue && queue.length > 0) ? queue.shift() : null;
+    return { text: t, time };
+  });
+
+  selectedIdx = -1;
+  document.getElementById('lrc-step1').style.display='none';
+  document.getElementById('lrc-step2').style.display='block';
+  renderLines();
+  startEditorLoop();
+});
+
+document.getElementById('lrc-back-btn').addEventListener('click', ()=>{
+  document.getElementById('lrc-textarea').value = editorLines.map(l=>l.text).join('\n');
+  document.getElementById('lrc-step1').style.display='block';
+  document.getElementById('lrc-step2').style.display='none';
+  if(editorRafId){ cancelAnimationFrame(editorRafId); editorRafId=null; }
+});
+
+document.getElementById('lrc-reset-btn').addEventListener('click', ()=>{
+  if(!confirm('Clear all timestamps?')) return;
+  editorLines = editorLines.map(l=>({...l,time:null}));
+  selectedIdx=-1; renderLines();
+});
+
+// LRCデータを補完して返す共通関数
+function buildFilledLines(){
+  let last=0;
+  return editorLines.map(l=>{ if(l.time!==null){last=l.time;return l;} last+=0.1; return{...l,time:last}; });
+}
+
+// ✓ Applyボタン（DLなし）
+document.getElementById('lrc-apply-btn').addEventListener('click', ()=>{
+  if(!editorLines.some(l=>l.time!==null)){ alert('Please set at least one timestamp'); return; }
+  lrcLines = buildFilledLines().map(l=>({time:l.time,text:l.text}));
+  document.getElementById('lrc-info').textContent=`${lrcLines.length}行`;
+  document.getElementById('lrc-loaded').style.display='block';
+  closeEditor();
+  alert(`${lrcLines.length} lines applied!`);
+});
+
+// ⬇ Save LRCボタン（DLのみ）
+document.getElementById('lrc-dl-btn').addEventListener('click', ()=>{
+  if(!editorLines.some(l=>l.time!==null)){ alert('Please set at least one timestamp'); return; }
+  const filled = buildFilledLines();
+  const lrcText = filled.map(l=>`${fmtLRC(l.time)}${l.text}`).join('\n');
+  const blob=new Blob([lrcText],{type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='lyrics.lrc'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+// エディター内の音声ループ
+function startEditorLoop(){
+  if(editorRafId) cancelAnimationFrame(editorRafId);
+  const pb=document.getElementById('lrc-play-btn');
+  const sk=document.getElementById('lrc-seek');
+  const ct=document.getElementById('lrc-cur-time');
+  let edSeeking=false;
+  sk.addEventListener('mousedown',()=>edSeeking=true,{once:false});
+  sk.addEventListener('mouseup',()=>edSeeking=false,{once:false});
+  sk.addEventListener('input',()=>{ if(audioEl&&audioEl.duration) audioEl.currentTime=(sk.value/100)*audioEl.duration; });
+  function loop(){
+    if(audioEl){
+      const m=Math.floor(audioEl.currentTime/60),s=Math.floor(audioEl.currentTime%60);
+      ct.textContent=`${m}:${String(s).padStart(2,'0')}`;
+      if(!edSeeking&&audioEl.duration) sk.value=(audioEl.currentTime/audioEl.duration)*100;
+      pb.textContent=audioEl.paused?'▶':'⏸';
+    }
+    editorRafId=requestAnimationFrame(loop);
+  }
+  editorRafId=requestAnimationFrame(loop);
+}
+
+document.getElementById('lrc-play-btn').addEventListener('click', ()=>{
+  if(!audioEl){ alert('Please load an audio file first'); return; }
+  audioEl.paused ? audioEl.play() : audioEl.pause();
+});
+document.getElementById('lrc-rewind-btn').addEventListener('click', ()=>{ if(audioEl) audioEl.currentTime=Math.max(0,audioEl.currentTime-3); });
+
+// 行レンダリング
+function renderLines(){
+  const wrap = document.getElementById('lrc-lines-wrap');
+  wrap.innerHTML='';
+
+  // 再生位置に対応するアクティブ行
+  let activeIdx=-1;
+  if(audioEl){
+    const t=audioEl.currentTime;
+    for(let i=0;i<editorLines.length;i++){
+      if(editorLines[i].time!==null && editorLines[i].time<=t) activeIdx=i;
+      else if(editorLines[i].time!==null && editorLines[i].time>t) break;
+    }
+  }
+
+  editorLines.forEach((line,i)=>{
+    const row=document.createElement('div');
+    const isSelected=i===selectedIdx, isActive=i===activeIdx;
+    row.className='lrc-line-row'+(isSelected?' selected':'')+(isActive?' active':'');
+
+    // 行番号
+    const num=document.createElement('span');
+    num.className='lrc-line-num';
+    num.textContent=i+1;
+
+    // テキスト（ダブルクリックで編集）
+    const tx=document.createElement('span');
+    tx.className='lrc-line-text'+(line.text?'':' empty');
+    tx.textContent=line.text||'(empty)';
+    tx.addEventListener('dblclick', ev=>{
+      ev.stopPropagation();
+      const inp=document.createElement('input');
+      inp.value=line.text;
+      inp.style.cssText='flex:1;width:100%;background:rgba(255,255,255,0.08);border:1px solid var(--accent);color:var(--text);border-radius:3px;padding:2px 6px;font-size:12px;font-family:Georgia,serif;';
+      tx.replaceWith(inp); inp.focus();
+      const save=()=>{ editorLines[i].text=inp.value; renderLines(); };
+      inp.addEventListener('blur',save);
+      inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();save();} });
+    });
+
+    // タイム表示（クリックで選択）
+    const tt=document.createElement('span');
+    tt.className='lrc-time-tag'+(line.time!==null?' has-time':'');
+    tt.textContent=line.time!==null?fmtTime(line.time):'--:--';
+    tt.title=isSelected?'Selected (Space to stamp)':'Click to select';
+    tt.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      selectedIdx=(selectedIdx===i)?-1:i;
+      renderLines();
+    });
+
+    // 行全体クリック→ジャンプ
+    row.addEventListener('click', ()=>{
+      if(line.time===null) return;
+      if(audioEl){ audioEl.currentTime=line.time; if(audioEl.paused) audioEl.play(); }
+    });
+
+    row.appendChild(num); row.appendChild(tx); row.appendChild(tt);
+    wrap.appendChild(row);
+  });
+}
+
+// アクティブ行を常時追跡
+let lastActiveIdx=-1;
+;(function activeLineLoop(){
+  if(audioEl && document.getElementById('lrc-step2').style.display!=='none'){
+    const t=audioEl.currentTime;
+    let ai=-1;
+    for(let i=0;i<editorLines.length;i++){
+      if(editorLines[i].time!==null && editorLines[i].time<=t) ai=i;
+      else if(editorLines[i].time!==null && editorLines[i].time>t) break;
+    }
+    if(ai!==lastActiveIdx){
+      lastActiveIdx=ai;
+      renderLines();
+      const rows=document.getElementById('lrc-lines-wrap').querySelectorAll('.lrc-line-row');
+      if(rows[ai]) rows[ai].scrollIntoView({block:'nearest'});
+    }
+  }
+  requestAnimationFrame(activeLineLoop);
+})();
+
+// キーボード操作（エディター表示中のみ）
+document.addEventListener('keydown', e=>{
+  if(lrcModal.style.display==='none') return;
+  if(e.target===document.getElementById('lrc-textarea')) return;
+  if(e.target.tagName==='INPUT'&&e.target.type==='text') return;
+
+  if(e.code==='Space'){
+    e.preventDefault();
+    if(document.getElementById('lrc-step2').style.display==='none') return;
+    if(!audioEl) return;
+    const t = audioEl.currentTime;
+    if(selectedIdx>=0){
+      editorLines[selectedIdx].time=t;
+      if(selectedIdx<editorLines.length-1) selectedIdx++;
+    } else {
+      const ni=editorLines.findIndex(l=>l.time===null);
+      if(ni>=0){ editorLines[ni].time=t; selectedIdx=Math.min(ni+1,editorLines.length-1); }
+    }
+    renderLines();
+    const rows=document.getElementById('lrc-lines-wrap').querySelectorAll('.lrc-line-row');
+    if(rows[selectedIdx]) rows[selectedIdx].scrollIntoView({block:'nearest'});
+  }
+  if(e.code==='KeyP'||e.code==='Enter'){
+    e.preventDefault();
+    if(audioEl) audioEl.paused?audioEl.play():audioEl.pause();
+  }
+});
+
+// ══ MVRecord（曲に合わせて） ══
+const mvRecBtn = document.getElementById('mv-rec-btn');
+let mvMediaRecorder = null;
+let mvRecChunks = [];
+let mvBarRaf = null;
+
+mvRecBtn.addEventListener('click', ()=>{
+  if(mvMediaRecorder && mvMediaRecorder.state==='recording'){
+    stopMvRec();
+  } else {
+    startMvRec();
+  }
+});
+
+function startMvRec(){
+  if(!audioEl){ alert('Please load an audio or video file first'); return; }
+  if(!isVideoMode && (!bgImg.complete || !bgImg.naturalWidth)){ alert('Please load an image first'); return; }
+
+  // 先頭に戻してから3秒カウントダウン
+  audioEl.currentTime = 0;
+  mvRecBtn.disabled = true;
+  setRecStatus('Starting in 3...');
+
+  let count = 3;
+  countdownInner.textContent = count;
+  countdown.style.opacity = '1';
+
+  const tick = setInterval(()=>{
+    count--;
+    if(count > 0){
+      countdownInner.textContent = count;
+      setRecStatus(`Starting in ${count}...`);
+    } else {
+      clearInterval(tick);
+      countdown.style.opacity = '0';
+      doStartMvRec();
+    }
+  }, 1000);
+}
+
+function doStartMvRec(){
+  const W = mainCanvas.width, H = mainCanvas.height;
+  const off = document.createElement('canvas');
+  off.width = W; off.height = H;
+  const octx = off.getContext('2d');
+
+  let compRaf;
+  function compose(){
+    octx.clearRect(0,0,W,H);
+    octx.drawImage(mainCanvas,0,0);
+    octx.drawImage(fxCanvas,0,0);
+    const txt = document.getElementById('lyric-line').textContent;
+    if(txt){
+      const fs = Math.round(Math.min(W,H)*0.045*(lrcState.size/100));
+      octx.save();
+      octx.font=`${fs}px ${lrcState.font}`;
+      octx.textAlign='center'; octx.textBaseline='middle';
+      octx.shadowColor=lrcState.shadow; octx.shadowBlur=18;
+      octx.fillStyle=lrcState.color;
+      octx.fillText(txt, W/2, H*(lrcState.pos/100));
+      octx.restore();
+    }
+    compRaf = requestAnimationFrame(compose);
+  }
+  compose();
+
+  const videoStream = off.captureStream(30);
+  const withAudio = document.getElementById('mv-audio-toggle').checked;
+
+  // With audioの場合はAudioContextで音声トラックを合成
+  let audioCtx = null;
+  let finalStream = videoStream;
+  if(withAudio && audioEl){
+    try {
+      audioCtx = new AudioContext();
+      const source = audioCtx.createMediaElementSource(audioEl);
+      const dest = audioCtx.createMediaStreamDestination();
+      source.connect(dest);
+      source.connect(audioCtx.destination); // スピーカーにも出力
+      const audioTrack = dest.stream.getAudioTracks()[0];
+      const combined = new MediaStream([
+        ...videoStream.getVideoTracks(),
+        audioTrack
+      ]);
+      finalStream = combined;
+    } catch(e) {
+      console.warn('AudioContext失敗、音声なしでRecordします:', e);
+    }
+  }
+
+  mvRecChunks = [];
+  const mp4Mime = 'video/mp4;codecs=avc1';
+  const webmMime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+  const mime = MediaRecorder.isTypeSupported(mp4Mime) ? mp4Mime : webmMime;
+  const isMP4 = mime.includes('mp4');
+
+  mvMediaRecorder = new MediaRecorder(finalStream, {mimeType:mime, videoBitsPerSecond:8000000});
+  mvMediaRecorder.ondataavailable = e=>{ if(e.data.size>0) mvRecChunks.push(e.data); };
+  mvMediaRecorder.onstop = async ()=>{
+    cancelAnimationFrame(compRaf);
+    if(audioCtx) audioCtx.close();
+    const blob = new Blob(mvRecChunks, {type:mime});
+
+    if(isMP4){
+      // そのままMP4でDL
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href=url; a.download='mAii_mv.mp4'; a.click();
+      URL.revokeObjectURL(url);
+      mvRecBtn.textContent = 'Record MV';
+      mvRecBtn.disabled = false;
+      setRecStatus('MVRecord完了！');
+      setRecBar(0);
+    } else {
+      // webm→MP4変換
+      setRecStatus('MP4にConverting...');
+      mvRecBtn.disabled = true;
+      try {
+        const {Muxer, ArrayBufferTarget} = await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.7/+esm');
+        const target = new ArrayBufferTarget();
+        const muxer = new Muxer({target, video:{codec:'avc',width:W,height:H}, audio:{codec:'aac',sampleRate:44100,numberOfChannels:2}, fastStart:'in-memory'});
+        const vEncoder = new VideoEncoder({
+          output:(chunk,meta)=>muxer.addVideoChunk(chunk,meta),
+          error:e=>{ throw e; }
+        });
+        vEncoder.configure({codec:'avc1.42001f',width:W,height:H,bitrate:8_000_000,framerate:30});
+
+        const aEncoder = new AudioEncoder({
+          output:(chunk,meta)=>muxer.addAudioChunk(chunk,meta),
+          error:e=>{ throw e; }
+        });
+        aEncoder.configure({codec:'mp4a.40.2',sampleRate:44100,numberOfChannels:2,bitrate:128_000});
+
+        const video = document.createElement('video');
+        video.muted = false; video.playsInline = true;
+        video.src = URL.createObjectURL(blob);
+        await new Promise(r=>video.addEventListener('loadedmetadata',r,{once:true}));
+
+        // 音声デコード用AudioContext
+        const decCtx = new AudioContext({sampleRate:44100});
+        const arrayBuf = await blob.arrayBuffer();
+        const audioBuf = await decCtx.decodeAudioData(arrayBuf);
+
+        const fps=30, total=Math.round(video.duration*fps);
+        const fc=document.createElement('canvas'); fc.width=W; fc.height=H;
+        const fc2=fc.getContext('2d');
+
+        // 映像フレームをエンコード
+        for(let i=0;i<total;i++){
+          video.currentTime=i/fps;
+          await new Promise(r=>video.addEventListener('seeked',r,{once:true}));
+          fc2.drawImage(video,0,0,W,H);
+          const vf=new VideoFrame(fc,{timestamp:Math.round(i/fps*1e6),duration:Math.round(1e6/fps)});
+          vEncoder.encode(vf,{keyFrame:i%60===0}); vf.close();
+          if(i%10===0) setRecStatus(`Converting... ${Math.round(i/total*100)}%`);
+        }
+        URL.revokeObjectURL(video.src);
+        await vEncoder.flush();
+
+        // 音声データをエンコード
+        const chSize=4096, ch=audioBuf.numberOfChannels, sr=audioBuf.sampleRate;
+        const totalSamples=audioBuf.length;
+        for(let offset=0;offset<totalSamples;offset+=chSize){
+          const len=Math.min(chSize,totalSamples-offset);
+          const aData=new AudioData({format:'f32-planar',sampleRate:sr,numberOfFrames:len,numberOfChannels:ch,timestamp:Math.round(offset/sr*1e6),data:(() => {
+            const buf=new Float32Array(len*ch);
+            for(let c=0;c<ch;c++) buf.set(audioBuf.getChannelData(c).slice(offset,offset+len),c*len);
+            return buf;
+          })()});
+          aEncoder.encode(aData); aData.close();
+        }
+        await aEncoder.flush();
+        await decCtx.close();
+
+        muxer.finalize();
+        const outBlob=new Blob([target.buffer],{type:'video/mp4'});
+        const outUrl=URL.createObjectURL(outBlob);
+        const a=document.createElement('a'); a.href=outUrl; a.download='mAii_mv.mp4'; a.click();
+        URL.revokeObjectURL(outUrl);
+        setRecStatus('MVRecord完了（音声付きMP4）！');
+      } catch(err) {
+        console.error('MP4変換失敗:', err);
+        // 変換失敗時はwebmでDL
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a'); a.href=url; a.download='mAii_mv.webm'; a.click();
+        URL.revokeObjectURL(url);
+        setRecStatus('⚠️ MP4 conversion failed, saved as webm');
+      }
+      mvRecBtn.textContent = 'Record MV';
+      mvRecBtn.disabled = false;
+      setRecBar(0);
+    }
+  };
+
+  mvMediaRecorder.start(100);
+  audioEl.play();
+  mvRecBtn.textContent = '■ Record停止';
+  mvRecBtn.disabled = false;
+  setRecStatus(withAudio ? '🎵 MVRecord中（With audio）…' : '🎵 MVRecord中（音声なし）…');
+
+  // 進捗バー
+  const duration = audioEl.duration;
+  mvBarRaf = null;
+  function updateBar(){
+    if(!audioEl) return;
+    const pct = Math.min(100, (audioEl.currentTime / duration)*100);
+    setRecBar(pct);
+    const remaining = Math.ceil(duration - audioEl.currentTime);
+    setRecStatus(`Recording... ${remaining}s left`);
+    if(pct < 100) mvBarRaf = requestAnimationFrame(updateBar);
+  }
+  updateBar();
+
+  // 曲が終わったら自動停止
+  audioEl.addEventListener('ended', ()=>{
+    cancelAnimationFrame(mvBarRaf);
+    stopMvRec();
+  }, {once:true});
+}
+
+function stopMvRec(){
+  cancelAnimationFrame(mvBarRaf);
+  mvBarRaf = null;
+  if(mvMediaRecorder && mvMediaRecorder.state==='recording'){
+    mvMediaRecorder.stop();
+  }
+  if(audioEl) audioEl.pause();
+  mvRecBtn.textContent = 'Record MV';
+  setRecStatus('Ready');
+  setRecBar(0);
+}
+
 </script>
 </body>
 </html>
