@@ -1110,41 +1110,56 @@ document.getElementById('sl-bg-padding').addEventListener('input', function(){
 });
 
 // ── メディア読み込み（audio / video 統合） ──
-let bgVideoEl = null; // 動画モード時のvideoElement
+let bgVideoEl = null;
 let isVideoMode = false;
+let mediaUrl = null; // 再生成用にURLを保持
+
+function createAudioEl(){
+  // AudioContextのため録画前に新しいaudioElを生成する
+  if(audioEl){ audioEl.pause(); audioEl=null; }
+  if(isVideoMode){
+    bgVideoEl = document.createElement('video');
+    bgVideoEl.src = mediaUrl;
+    bgVideoEl.loop = false;
+    bgVideoEl.muted = false;
+    bgVideoEl.playsInline = true;
+    bgVideoEl.preload = 'auto';
+    audioEl = bgVideoEl;
+  } else {
+    audioEl = new Audio(mediaUrl);
+  }
+  audioEl.addEventListener('ended', ()=>{ document.getElementById('play-btn').textContent='Play'; });
+  return audioEl;
+}
 
 function loadMediaFile(file){
   const isVideo = file.type.startsWith('video/');
   isVideoMode = isVideo;
 
   // 既存のメディアをクリア
-  if(audioEl){ audioEl.pause(); URL.revokeObjectURL(audioEl.src); audioEl=null; }
-  if(bgVideoEl){ bgVideoEl.pause(); URL.revokeObjectURL(bgVideoEl.src); bgVideoEl=null; }
+  if(audioEl){ audioEl.pause(); audioEl=null; }
+  if(bgVideoEl){ bgVideoEl.pause(); bgVideoEl=null; }
+  if(mediaUrl) URL.revokeObjectURL(mediaUrl);
 
-  const url = URL.createObjectURL(file);
+  mediaUrl = URL.createObjectURL(file);
 
   if(isVideo){
-    // 動画モード：bgVideoElで映像+音声を担当
     bgVideoEl = document.createElement('video');
-    bgVideoEl.src = url;
+    bgVideoEl.src = mediaUrl;
     bgVideoEl.loop = false;
     bgVideoEl.muted = false;
     bgVideoEl.playsInline = true;
     bgVideoEl.preload = 'auto';
-    // audioElも同じvideoElを参照（再生コントロール・歌詞同期用）
     audioEl = bgVideoEl;
     document.getElementById('av-mode-label').textContent = 'Video mode — Ken Burns disabled';
     document.getElementById('av-mode-label').style.display = 'block';
-    // 動画モードは音声あり固定
     const toggle = document.getElementById('mv-audio-toggle');
     toggle.checked = true;
     toggle.disabled = true;
   } else {
-    // 音声モード：従来通り
-    audioEl = new Audio(url);
+    audioEl = new Audio(mediaUrl);
     bgVideoEl = null;
     document.getElementById('av-mode-label').style.display = 'none';
-    // 音声モードはトグルを有効に戻す
     const toggle = document.getElementById('mv-audio-toggle');
     toggle.disabled = false;
   }
@@ -1507,6 +1522,33 @@ function startMvRec(){
 }
 
 function doStartMvRec(){
+  // 録画用に別のmedia要素を作成（audioElを上書きしない）
+  let recAudioEl;
+  if(isVideoMode){
+    const recVideo = document.createElement('video');
+    recVideo.src = mediaUrl;
+    recVideo.muted = false;
+    recVideo.playsInline = true;
+    recVideo.preload = 'auto';
+    recAudioEl = recVideo;
+  } else {
+    recAudioEl = new Audio(mediaUrl);
+    recAudioEl.preload = 'auto';
+  }
+
+  // メタデータ読み込み完了を待ってから録画開始
+  function startRecording(){
+    _startRecordingWithEl(recAudioEl);
+  }
+  if(recAudioEl.readyState >= 1 && recAudioEl.duration > 0){
+    startRecording();
+  } else {
+    recAudioEl.addEventListener('loadedmetadata', startRecording, {once:true});
+    recAudioEl.load();
+  }
+}
+
+function _startRecordingWithEl(recAudioEl){
   const W = mainCanvas.width, H = mainCanvas.height;
   const off = document.createElement('canvas');
   off.width = W; off.height = H;
@@ -1538,21 +1580,17 @@ function doStartMvRec(){
   // With audioの場合はAudioContextで音声トラックを合成
   let audioCtx = null;
   let finalStream = videoStream;
-  if(withAudio && audioEl){
+  if(withAudio && recAudioEl){
     try {
       audioCtx = new AudioContext();
-      const source = audioCtx.createMediaElementSource(audioEl);
+      const source = audioCtx.createMediaElementSource(recAudioEl);
       const dest = audioCtx.createMediaStreamDestination();
       source.connect(dest);
-      source.connect(audioCtx.destination); // スピーカーにも出力
+      source.connect(audioCtx.destination);
       const audioTrack = dest.stream.getAudioTracks()[0];
-      const combined = new MediaStream([
-        ...videoStream.getVideoTracks(),
-        audioTrack
-      ]);
-      finalStream = combined;
+      finalStream = new MediaStream([...videoStream.getVideoTracks(), audioTrack]);
     } catch(e) {
-      console.warn('AudioContext失敗、音声なしでRecordします:', e);
+      console.warn('AudioContext failed, recording without audio:', e);
     }
   }
 
@@ -1567,6 +1605,7 @@ function doStartMvRec(){
   mvMediaRecorder.onstop = async ()=>{
     cancelAnimationFrame(compRaf);
     if(audioCtx) audioCtx.close();
+    recAudioEl.pause();
     const blob = new Blob(mvRecChunks, {type:mime});
 
     if(isMP4){
@@ -1661,26 +1700,27 @@ function doStartMvRec(){
   };
 
   mvMediaRecorder.start(100);
-  audioEl.play();
-  mvRecBtn.textContent = '■ Record停止';
+  recAudioEl.currentTime = 0;
+  recAudioEl.play();
+  mvRecBtn.textContent = '■ Stop';
   mvRecBtn.disabled = false;
-  setRecStatus(withAudio ? '🎵 MVRecord中（With audio）…' : '🎵 MVRecord中（音声なし）…');
+  setRecStatus(withAudio ? 'Recording MV (with audio)...' : 'Recording MV (no audio)...');
 
-  // 進捗バー
-  const duration = audioEl.duration;
+  // 進捗バー（durationはloadedmetadata後なので確実に取れる）
+  const duration = recAudioEl.duration;
   mvBarRaf = null;
   function updateBar(){
-    if(!audioEl) return;
-    const pct = Math.min(100, (audioEl.currentTime / duration)*100);
+    if(!duration || duration <= 0) return;
+    const pct = Math.min(100, (recAudioEl.currentTime / duration)*100);
     setRecBar(pct);
-    const remaining = Math.ceil(duration - audioEl.currentTime);
+    const remaining = Math.ceil(duration - recAudioEl.currentTime);
     setRecStatus(`Recording... ${remaining}s left`);
     if(pct < 100) mvBarRaf = requestAnimationFrame(updateBar);
   }
   updateBar();
 
   // 曲が終わったら自動停止
-  audioEl.addEventListener('ended', ()=>{
+  recAudioEl.addEventListener('ended', ()=>{
     cancelAnimationFrame(mvBarRaf);
     stopMvRec();
   }, {once:true});
@@ -1692,7 +1732,6 @@ function stopMvRec(){
   if(mvMediaRecorder && mvMediaRecorder.state==='recording'){
     mvMediaRecorder.stop();
   }
-  if(audioEl) audioEl.pause();
   mvRecBtn.textContent = 'Record MV';
   setRecStatus('Ready');
   setRecBar(0);
