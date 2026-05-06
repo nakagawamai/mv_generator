@@ -1549,6 +1549,10 @@ function doStartMvRec(){
 }
 
 function _startRecordingWithEl(recAudioEl){
+  // 動画モードでは drawMain() が bgVideoEl を参照するため、録画用要素に差し替える
+  const savedBgVideoEl = bgVideoEl;
+  if(isVideoMode) bgVideoEl = recAudioEl;
+
   const W = mainCanvas.width, H = mainCanvas.height;
   const off = document.createElement('canvas');
   off.width = W; off.height = H;
@@ -1606,6 +1610,7 @@ function _startRecordingWithEl(recAudioEl){
     cancelAnimationFrame(compRaf);
     if(audioCtx) audioCtx.close();
     recAudioEl.pause();
+    if(isVideoMode) bgVideoEl = savedBgVideoEl;
     const blob = new Blob(mvRecChunks, {type:mime});
 
     if(isMP4){
