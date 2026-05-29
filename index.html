@@ -27,11 +27,7 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 @media (min-width:601px) {
   #app { grid-template-columns:80% 20%; }
   #preview-wrap { height:100vh; }
-  #side-panel {
-    height:100vh;
-    overflow-y:auto;
-    overflow-x:hidden;
-  }
+  #side-panel { height:100vh; }
 }
 
 /* SP：縦並び（プレビュー上、パネル下スクロール） */
@@ -42,16 +38,12 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
     width:100%;
   }
   #side-panel {
-    overflow-y:auto;
-    overflow-x:hidden;
-    -webkit-overflow-scrolling:touch;
-    min-height:0;          /* グリッドアイテムが収縮してスクロールを有効化 */
-    padding-bottom:env(safe-area-inset-bottom, 24px); /* iOS ホームバー対応 */
+    min-height:0; /* グリッドアイテムが収縮してフレックス子要素が機能するよう */
   }
 }
 
 /* プレビュー内部 */
-#preview-wrap { position:relative; background:#000; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+#preview-wrap { position:relative; background:#2e2a27; overflow:hidden; display:flex; align-items:center; justify-content:center; }
 #main-canvas, #fx-canvas { position:absolute; top:0; left:0; }
 #lyric-overlay { position:absolute; left:0; right:0; text-align:center; pointer-events:none; z-index:15; }
 @media (max-width:600px) {
@@ -92,9 +84,25 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 #side-panel {
   background:var(--panel);
   border-left:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
 }
-#side-panel::-webkit-scrollbar { width:3px; }
-#side-panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); }
+.panel-scroll {
+  flex:1;
+  overflow-y:auto;
+  overflow-x:hidden;
+  min-height:0;
+  -webkit-overflow-scrolling:touch;
+}
+.panel-scroll::-webkit-scrollbar { width:3px; }
+.panel-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); }
+#panel-footer {
+  flex-shrink:0;
+  padding:10px 14px;
+  padding-bottom:max(10px, env(safe-area-inset-bottom));
+  background:var(--panel);
+  border-top:1px solid var(--border);
+}
 
 /* アコーディオン */
 .acc-item { border-bottom:1px solid var(--border); }
@@ -123,8 +131,8 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 .toggle-wrap input:checked + .toggle-track::after { transform:translateX(16px); }
 
 /* スライダー */
-.sl-block { margin-bottom:8px; }
-.sl-header { font-size:10px; color:var(--muted); margin-bottom:3px; }
+.sl-block { margin-bottom:10px; }
+.sl-header { font-size:12px; color:var(--muted); margin-bottom:4px; }
 .sl-header .sl-val { float:right; color:rgba(255,255,255,0.55); }
 .sl-header::after { content:''; display:table; clear:both; }
 input[type=range] {
@@ -137,9 +145,9 @@ input[type=range]::-webkit-slider-thumb {
 }
 
 /* Recordセクション */
-.rec-section { padding:14px; border-bottom:1px solid var(--border); }
-.rec-title { display:block; font-size:9px; letter-spacing:0.35em; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
-.rec-status { font-size:11px; color:var(--muted); margin-bottom:6px; min-height:14px; display:block; }
+.rec-section { padding:16px; border-bottom:1px solid var(--border); }
+.rec-title { display:block; font-size:11px; letter-spacing:0.35em; text-transform:uppercase; color:var(--accent); margin-bottom:12px; }
+.rec-status { font-size:12px; color:var(--muted); margin-bottom:8px; min-height:16px; display:block; }
 .rec-progress { height:3px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; margin-bottom:10px; }
 #rec-bar { height:100%; width:0%; background:var(--accent); transition:width 0.3s linear; }
 .rec-btn-style { display:block; width:100%; background:rgba(155,40,40,0.85); color:#fff; border:none; border-radius:4px; padding:11px; font-size:12px; letter-spacing:0.12em; cursor:pointer; font-family:inherit; margin-bottom:8px; }
@@ -150,34 +158,34 @@ input[type=range]::-webkit-slider-thumb {
 .mp4-btn-style { display:block; width:100%; background:rgba(40,100,60,0.85); color:#fff; border:none; border-radius:4px; padding:11px; font-size:12px; letter-spacing:0.12em; cursor:pointer; font-family:inherit; margin-bottom:8px; }
 .mp4-btn-style:hover:not(:disabled) { background:rgb(50,130,75); }
 .mp4-btn-style:disabled { background:rgba(255,255,255,0.06); color:var(--muted); cursor:default; }
-.img-btn-style { display:block; width:100%; background:none; border:1px solid var(--border); color:var(--muted); border-radius:4px; padding:9px; font-size:11px; cursor:pointer; font-family:inherit; }
+.img-btn-style { display:flex; align-items:center; justify-content:center; width:100%; min-height:100px; background:none; border:1px solid var(--border); color:var(--muted); border-radius:4px; padding:9px; font-size:13px; cursor:pointer; font-family:inherit; margin-bottom:8px; }
 .img-btn-style:hover { border-color:var(--accent); color:var(--accent); }
 #convert-status { font-size:10px; color:var(--muted); display:block; margin-bottom:6px; min-height:13px; }
 
 /* タブ */
 #tab-bar { display:flex; border-bottom:1px solid var(--border); }
-.tab-btn { flex:1; padding:11px 4px; font-size:10px; letter-spacing:0.1em; color:var(--muted); background:none; border:none; cursor:pointer; font-family:inherit; border-bottom:2px solid transparent; transition:color 0.2s,border-color 0.2s; }
+.tab-btn { flex:1; padding:14px 4px; font-size:12px; letter-spacing:0.1em; color:var(--muted); background:none; border:none; cursor:pointer; font-family:inherit; border-bottom:2px solid transparent; transition:color 0.2s,border-color 0.2s; }
 .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
 .tab-pane { display:none; }
 .tab-pane.active { display:block; }
 
 /* キャンバスサイズボタン */
-.canvas-size-btn { flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--muted); border-radius:4px; padding:6px; font-size:11px; cursor:pointer; font-family:inherit; transition:all 0.15s; }
+.canvas-size-btn { flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--muted); border-radius:4px; padding:10px 6px; font-size:13px; cursor:pointer; font-family:inherit; transition:all 0.15s; }
 .canvas-size-btn:hover { border-color:var(--accent); color:var(--text); }
 .canvas-size-btn.active { background:rgba(200,169,110,0.15); border-color:var(--accent); color:var(--accent); }
 
 /* 音声・歌詞セクション */
-.av-section { padding:14px; border-bottom:1px solid var(--border); }
-.av-title { display:block; font-size:9px; letter-spacing:0.35em; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
-.av-drop { border:1px dashed rgba(255,255,255,0.15); border-radius:4px; padding:10px; text-align:center; cursor:pointer; margin-bottom:8px; transition:border-color 0.2s,background 0.2s; }
+.av-section { padding:16px; border-bottom:1px solid var(--border); }
+.av-title { display:block; font-size:11px; letter-spacing:0.35em; text-transform:uppercase; color:var(--accent); margin-bottom:12px; }
+.av-drop { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; min-height:100px; border:1px dashed rgba(255,255,255,0.15); border-radius:4px; cursor:pointer; margin-bottom:8px; transition:border-color 0.2s,background 0.2s; }
 .av-drop:hover,.av-drop.dragover { border-color:var(--accent); background:rgba(200,169,110,0.06); }
-.av-drop span { font-size:10px; color:var(--muted); display:block; }
+.av-drop span { font-size:11px; color:var(--muted); display:block; text-align:center; padding:0 8px; }
 .av-loaded { font-size:10px; color:var(--accent); margin-bottom:6px; display:none; }
-.av-btn { display:block; width:100%; border:none; border-radius:4px; padding:8px; font-size:11px; letter-spacing:0.08em; cursor:pointer; font-family:inherit; margin-bottom:6px; color:#fff; }
+.av-btn { display:block; width:100%; border:none; border-radius:4px; padding:13px 8px; font-size:13px; letter-spacing:0.08em; cursor:pointer; font-family:inherit; margin-bottom:8px; color:#fff; }
 .av-btn:disabled { background:rgba(255,255,255,0.06)!important; color:var(--muted); cursor:default; }
-.av-row { display:flex; gap:6px; margin-bottom:6px; }
-.av-time { font-size:10px; color:var(--muted); text-align:center; margin-bottom:4px; }
-.av-sl-label { font-size:10px; color:var(--muted); margin-bottom:3px; display:flex; justify-content:space-between; }
+.av-row { display:flex; gap:8px; margin-bottom:8px; }
+.av-time { font-size:12px; color:var(--muted); text-align:center; margin-bottom:6px; }
+.av-sl-label { font-size:12px; color:var(--muted); margin-bottom:4px; display:flex; justify-content:space-between; }
 
 /* 歌詞オーバーレイ */
 #lyric-overlay { position:absolute; pointer-events:none; z-index:15; text-align:center; }
@@ -244,6 +252,7 @@ input[type=range]::-webkit-slider-thumb {
 
   <!-- サイドパネル -->
   <div id="side-panel">
+  <div class="panel-scroll">
 
     <!-- タブバー -->
     <div id="tab-bar">
@@ -256,6 +265,7 @@ input[type=range]::-webkit-slider-thumb {
 
       <!-- 音声 & 歌詞 -->
       <div class="av-section">
+        <button id="change-img-btn" class="img-btn-style">Change image</button>
         <div class="av-drop" id="audio-drop">
           <span id="av-drop-label">Drop audio or video, or click</span>
           <input type="file" id="audio-input" accept="audio/*,video/*" style="display:none">
@@ -265,13 +275,26 @@ input[type=range]::-webkit-slider-thumb {
 
         <div class="av-row">
           <button class="av-btn" id="play-btn" style="flex:2;background:rgba(60,80,140,0.85);" disabled>Play</button>
-          <button class="av-btn" id="rewind-btn" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:var(--muted);font-size:10px;" disabled>↺ 5s</button>
+          <button class="av-btn" id="rewind-btn" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:var(--muted);" disabled>↺ 5s</button>
         </div>
         <input type="range" id="main-seek" min="0" max="100" value="0" step="0.1" style="width:100%;margin-bottom:4px;" disabled>
         <div class="av-time" id="time-display">--:-- / --:--</div>
 
         <div class="av-row" style="margin-top:8px;">
-          <button class="av-btn" id="open-editor-btn" style="flex:1;background:rgba(80,60,120,0.85);">LRC Editor</button>
+          <button class="canvas-size-btn active" data-w="1920" data-h="1080" onclick="setCanvasSize(1920,1080,this)">16:9</button>
+          <button class="canvas-size-btn" data-w="1080" data-h="1920" onclick="setCanvasSize(1080,1920,this)">9:16</button>
+          <button class="canvas-size-btn" data-w="1080" data-h="1080" onclick="setCanvasSize(1080,1080,this)">1:1</button>
+        </div>
+        <div class="sl-block">
+          <div class="sl-header">Image X position<span class="sl-val" id="val-bg-pos-x">0%</span></div>
+          <input type="range" id="sl-bg-pos-x" min="-100" max="100" value="0" step="1">
+        </div>
+        <div class="sl-block" style="margin-bottom:10px;">
+          <div class="sl-header">Image Y position<span class="sl-val" id="val-bg-pos-y">0%</span></div>
+          <input type="range" id="sl-bg-pos-y" min="-100" max="100" value="0" step="1">
+        </div>
+        <div class="av-row">
+          <button class="av-btn" id="open-editor-btn" style="flex:1;background:rgba(80,60,120,0.85);">Lyric Editor</button>
           <button class="av-btn" id="lrc-load-btn" style="flex:1;background:rgba(40,60,80,0.85);">Load LRC</button>
           <input type="file" id="lrc-input" accept=".lrc,.txt" style="display:none">
         </div>
@@ -284,27 +307,33 @@ input[type=range]::-webkit-slider-thumb {
           <input type="range" id="sl-lyric-pos" min="5" max="95" value="80" style="width:100%;margin-bottom:6px;">
           <div class="av-sl-label"><span>X Position</span><span id="val-lyric-posx">50%</span></div>
           <input type="range" id="sl-lyric-posx" min="5" max="95" value="50" style="width:100%;margin-bottom:6px;">
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-            <span style="font-size:10px;color:var(--muted);">Color</span>
-            <input type="color" id="lyric-color" value="#ffffff" style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;">
-            <span style="font-size:10px;color:var(--muted);">Shadow</span>
-            <input type="color" id="lyric-shadow" value="#000000" style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;">
-            <span style="font-size:10px;color:var(--muted);">Stroke</span>
-            <input type="color" id="lyric-stroke-color" value="#000000" style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;">
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:12px;color:var(--muted);width:52px;">Color</span>
+              <input type="color" id="lyric-color" value="#ffffff" style="width:32px;height:32px;border-radius:4px;border:1px solid var(--border);cursor:pointer;">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:12px;color:var(--muted);width:52px;">Shadow</span>
+              <input type="color" id="lyric-shadow" value="#000000" style="width:32px;height:32px;border-radius:4px;border:1px solid var(--border);cursor:pointer;">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:12px;color:var(--muted);width:52px;">Stroke</span>
+              <input type="color" id="lyric-stroke-color" value="#000000" style="width:32px;height:32px;border-radius:4px;border:1px solid var(--border);cursor:pointer;">
+            </div>
           </div>
           <div class="av-sl-label"><span>Stroke width</span><span id="val-lyric-stroke">0px</span></div>
           <input type="range" id="sl-lyric-stroke" min="0" max="20" value="0" style="width:100%;margin-bottom:6px;">
-          <select id="lyric-font" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:4px;font-size:10px;cursor:pointer;margin-bottom:6px;">
+          <select id="lyric-font" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:8px 4px;font-size:12px;cursor:pointer;margin-bottom:8px;">
             <option value="'Noto Serif JP', Georgia, serif">Serif JP (明朝)</option>
             <option value="Georgia,serif">Serif (Georgia)</option>
             <option value="sans-serif">Sans-serif</option>
           </select>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
             <span style="font-size:10px;color:var(--muted);">Writing</span>
-            <button id="lyric-vertical-btn" style="font-size:10px;padding:2px 8px;background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--text);border-radius:3px;cursor:pointer;">横書き</button>
+            <button id="lyric-vertical-btn" style="font-size:12px;padding:6px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--text);border-radius:3px;cursor:pointer;">横書き</button>
           </div>
           <div class="av-sl-label"><span>Effect</span></div>
-          <select id="lyric-effect" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:4px;font-size:10px;cursor:pointer;margin-bottom:6px;">
+          <select id="lyric-effect" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:8px 4px;font-size:12px;cursor:pointer;margin-bottom:8px;">
             <option value="none">None</option>
             <option value="typewriter">Typewriter</option>
             <option value="burst">Burst</option>
@@ -319,12 +348,7 @@ input[type=range]::-webkit-slider-thumb {
       <!-- Record -->
       <div class="rec-section">
         <span class="rec-title">Record</span>
-        <div style="display:flex;gap:6px;margin-bottom:10px;">
-          <button class="canvas-size-btn active" data-w="1920" data-h="1080" onclick="setCanvasSize(1920,1080,this)">16:9</button>
-          <button class="canvas-size-btn" data-w="1080" data-h="1920" onclick="setCanvasSize(1080,1920,this)">9:16</button>
-          <button class="canvas-size-btn" data-w="1080" data-h="1080" onclick="setCanvasSize(1080,1080,this)">1:1</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <span style="font-size:10px;color:var(--muted);flex-shrink:0;">BG</span>
           <select id="bg-fill-mode" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:4px;font-size:10px;cursor:pointer;">
             <option value="black">Black</option>
@@ -333,24 +357,12 @@ input[type=range]::-webkit-slider-thumb {
           </select>
           <input type="color" id="bg-fill-color" value="#1a1a2e" style="width:28px;height:28px;border-radius:3px;border:1px solid var(--border);cursor:pointer;display:none;">
         </div>
-        <div class="sl-block" style="padding:0 0 10px;">
+        <div class="sl-block">
           <div class="sl-header">Image padding (top/bottom)<span class="sl-val" id="val-bg-padding">0%</span></div>
           <input type="range" id="sl-bg-padding" min="0" max="40" value="0" step="1">
         </div>
-        <div style="font-size:10px;color:#c8a020;background:rgba(200,160,32,0.1);border:1px solid rgba(200,160,32,0.3);border-radius:4px;padding:6px 8px;margin-bottom:8px;line-height:1.5;">
-          ⚠️ 録画中はこのタブをアクティブ（最前面）にしてください。<br>バックグラウンドでは映像・歌詞が正しく記録されません。
-        </div>
         <span class="rec-status" id="rec-status">Ready</span>
         <div class="rec-progress"><div id="rec-bar"></div></div>
-        <button id="rec-btn" class="rec-btn-style" disabled>● REC (Loop)</button>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <label class="toggle-wrap"><input type="checkbox" id="mv-audio-toggle" checked><div class="toggle-track"></div></label>
-          <span style="font-size:10px;color:var(--muted);">With audio</span>
-        </div>
-        <button id="mv-rec-btn" class="rec-btn-style" style="background:rgba(80,40,120,0.85);" disabled>Record MV</button>
-        <span id="convert-status"></span>
-        <button id="mp4-btn" class="mp4-btn-style" style="display:none" disabled>Convert to MP4</button>
-        <button id="change-img-btn" class="img-btn-style">Change image</button>
       </div>
 
     </div><!-- /tab-av -->
@@ -500,8 +512,26 @@ input[type=range]::-webkit-slider-thumb {
 
     </div><!-- /tab-fx -->
 
+  </div><!-- /panel-scroll -->
+
+  <!-- フッター：常時表示 Record MV ボタン -->
+  <div id="panel-footer">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <label class="toggle-wrap"><input type="checkbox" id="mv-audio-toggle" checked><div class="toggle-track"></div></label>
+      <span style="font-size:12px;color:var(--muted);">With audio</span>
+      <span id="convert-status" style="font-size:10px;margin-left:auto;"></span>
+    </div>
+    <button id="mv-rec-btn" class="rec-btn-style" style="background:rgba(80,40,120,0.85);min-height:100px;font-size:15px;letter-spacing:0.15em;margin-bottom:0;" disabled>Record MV</button>
+    <button id="mp4-btn" class="mp4-btn-style" style="display:none;margin-bottom:0;" disabled>Convert to MP4</button>
+  </div>
+
   </div><!-- /side-panel -->
 </div><!-- /app -->
+
+<!-- 録画注意トースト -->
+<div id="rec-warning-toast" style="display:none;position:fixed;bottom:130px;left:50%;transform:translateX(-50%);background:rgba(30,20,5,0.97);color:#f0c040;border:1px solid rgba(200,160,32,0.5);border-radius:8px;padding:14px 18px;font-size:12px;z-index:200;max-width:88%;text-align:center;line-height:1.7;box-shadow:0 4px 20px rgba(0,0,0,0.6);">
+  ⚠️ 録画中はこのタブをアクティブ（最前面）にしてください。<br>バックグラウンドでは映像・歌詞が正しく記録されません。
+</div>
 
 <!-- LRCエディター -->
 <div id="lrc-modal">
@@ -587,6 +617,7 @@ const convertStatusEl= document.getElementById('convert-status');
 function setRecStatus(t){ recStatusEl.textContent=t; }
 function setRecBar(pct){ recBarEl.style.width=pct+'%'; }
 function setRecBtn(text,cls,disabled){
+  if(!recBtn) return;
   recBtn.textContent=text;
   recBtn.classList.toggle('recording',cls==='recording');
   recBtn.disabled=disabled;
@@ -599,7 +630,7 @@ bgImg.src = `data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4ReJRXhpZgAATU0A
 
 function loadImage(file){
   const reader=new FileReader();
-  reader.onload=e=>{ bgImg.src=e.target.result; dropZone.classList.add('hidden'); recBtn.disabled=false; };
+  reader.onload=e=>{ bgImg.src=e.target.result; dropZone.classList.add('hidden'); if(recBtn) recBtn.disabled=false; };
   reader.readAsDataURL(file);
 }
 dropZone.addEventListener('click',()=>fileInput.click());
@@ -613,7 +644,7 @@ dropZone.addEventListener('drop',e=>{
 fileInput.addEventListener('change',e=>{ if(e.target.files[0])loadImage(e.target.files[0]); });
 document.getElementById('change-img-btn').addEventListener('click',()=>fileInput.click());
 dropZone.classList.add('hidden');
-recBtn.disabled=false;
+if(recBtn) recBtn.disabled=false;
 
 // トグル
 function bindToggle(id,key,cb){
@@ -768,25 +799,34 @@ function drawMain(ts){
   }
   // パディング量（上下の帯）
   const padPct = (parseInt(document.getElementById('sl-bg-padding')?.value)||0) / 100;
-  const padPx = Math.round(H * padPct); // 上下それぞれのpx
-  // 背景：動画モードならvideoElから、画像モードならbgImgから描画
-  // 描画領域は上下padPxを除いた中央エリア
+  const padPx = Math.round(H * padPct);
+  const bgPosX = (parseInt(document.getElementById('sl-bg-pos-x')?.value)||0) / 100;
+  const bgPosY = (parseInt(document.getElementById('sl-bg-pos-y')?.value)||0) / 100;
+  // 9:16・1:1（縦/正方形）は高さ基準フィット、16:9（横）は従来のcontain
+  const isPortrait = H >= W;
   const drawH = H - padPx * 2;
   if(bgVideoEl && !bgVideoEl.paused || bgVideoEl && bgVideoEl.readyState >= 2){
     const vw=bgVideoEl.videoWidth, vh=bgVideoEl.videoHeight;
     if(vw>0&&vh>0){
-      const sc=Math.min(W/vw, drawH/vh);
-      const dw=vw*sc,dh=vh*sc;
-      const dx=(W-dw)/2, dy=padPx+(drawH-dh)/2;
+      const sc = isPortrait ? drawH/vh : Math.min(W/vw, drawH/vh);
+      const dw=vw*sc, dh=vh*sc;
+      const dx = W/2 + W*bgPosX - dw/2;
+      const dy = padPx + drawH/2 + drawH*bgPosY - dh/2;
+      mctx.save(); mctx.rect(0,0,W,H); mctx.clip();
       mctx.drawImage(bgVideoEl,dx,dy,dw,dh);
+      mctx.restore();
     }
   } else if(bgImg.complete&&bgImg.naturalWidth>0){
-    const iw=bgImg.naturalWidth,ih=bgImg.naturalHeight;
-    const sc=Math.min(W/iw, drawH/ih)*kb.scale;
-    const dw=iw*sc,dh=ih*sc;
-    const dx=W/2+(W*kb.tx/100)-dw/2;
-    const dy=padPx+(drawH/2)+(drawH*kb.ty/100)-dh/2;
+    const iw=bgImg.naturalWidth, ih=bgImg.naturalHeight;
+    const sc = isPortrait
+      ? drawH/ih * kb.scale
+      : Math.min(W/iw, drawH/ih) * kb.scale;
+    const dw=iw*sc, dh=ih*sc;
+    const dx = W/2 + W*(kb.tx/100 + bgPosX) - dw/2;
+    const dy = padPx + drawH/2 + drawH*(kb.ty/100 + bgPosY) - dh/2;
+    mctx.save(); mctx.rect(0,0,W,H); mctx.clip();
     mctx.drawImage(bgImg,dx,dy,dw,dh);
+    mctx.restore();
   }
   if(state.glow){
     glowPhase+=0.008;
@@ -963,7 +1003,7 @@ requestAnimationFrame(()=>{
 // Record
 let mediaRecorder=null,recChunks=[],recTimer=null,recRaf=null,lastWebmBlob=null;
 
-recBtn.addEventListener('click',()=>{
+recBtn&&recBtn.addEventListener('click',()=>{
   if(mediaRecorder&&mediaRecorder.state==='recording')stopRec();
   else startCountdown();
 });
@@ -1249,6 +1289,12 @@ document.getElementById('bg-fill-mode').addEventListener('change', function(){
 });
 document.getElementById('sl-bg-padding').addEventListener('input', function(){
   document.getElementById('val-bg-padding').textContent = this.value + '%';
+});
+document.getElementById('sl-bg-pos-x').addEventListener('input', function(){
+  document.getElementById('val-bg-pos-x').textContent = this.value + '%';
+});
+document.getElementById('sl-bg-pos-y').addEventListener('input', function(){
+  document.getElementById('val-bg-pos-y').textContent = this.value + '%';
 });
 
 // ── メディア読み込み（audio / video 統合） ──
@@ -1646,10 +1692,19 @@ let mvMediaRecorder = null;
 let mvRecChunks = [];
 let mvBarRaf = null;
 
+let _recToastTimer = null;
+function showRecWarningToast(){
+  const toast = document.getElementById('rec-warning-toast');
+  toast.style.display = 'block';
+  clearTimeout(_recToastTimer);
+  _recToastTimer = setTimeout(()=>{ toast.style.display='none'; }, 4000);
+}
+
 mvRecBtn.addEventListener('click', ()=>{
   if(mvMediaRecorder && mvMediaRecorder.state==='recording'){
     stopMvRec();
   } else {
+    showRecWarningToast();
     startMvRec();
   }
 });
