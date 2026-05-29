@@ -158,7 +158,7 @@ input[type=range]::-webkit-slider-thumb {
 .mp4-btn-style { display:block; width:100%; background:rgba(40,100,60,0.85); color:#fff; border:none; border-radius:4px; padding:11px; font-size:12px; letter-spacing:0.12em; cursor:pointer; font-family:inherit; margin-bottom:8px; }
 .mp4-btn-style:hover:not(:disabled) { background:rgb(50,130,75); }
 .mp4-btn-style:disabled { background:rgba(255,255,255,0.06); color:var(--muted); cursor:default; }
-.img-btn-style { display:flex; align-items:center; justify-content:center; width:100%; min-height:100px; background:none; border:1px solid var(--border); color:var(--muted); border-radius:4px; padding:9px; font-size:13px; cursor:pointer; font-family:inherit; margin-bottom:8px; }
+.img-btn-style { display:flex; align-items:center; justify-content:center; width:100%; height:60px; max-height:60px; background:none; border:1px solid var(--border); color:var(--muted); border-radius:4px; padding:9px; font-size:13px; cursor:pointer; font-family:inherit; margin-bottom:8px; }
 .img-btn-style:hover { border-color:var(--accent); color:var(--accent); }
 #convert-status { font-size:10px; color:var(--muted); display:block; margin-bottom:6px; min-height:13px; }
 
@@ -177,7 +177,7 @@ input[type=range]::-webkit-slider-thumb {
 /* 音声・歌詞セクション */
 .av-section { padding:16px; border-bottom:1px solid var(--border); }
 .av-title { display:block; font-size:11px; letter-spacing:0.35em; text-transform:uppercase; color:var(--accent); margin-bottom:12px; }
-.av-drop { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; min-height:100px; border:1px dashed rgba(255,255,255,0.15); border-radius:4px; cursor:pointer; margin-bottom:8px; transition:border-color 0.2s,background 0.2s; }
+.av-drop { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; height:60px; max-height:60px; border:1px dashed rgba(255,255,255,0.15); border-radius:4px; cursor:pointer; margin-bottom:8px; transition:border-color 0.2s,background 0.2s; }
 .av-drop:hover,.av-drop.dragover { border-color:var(--accent); background:rgba(200,169,110,0.06); }
 .av-drop span { font-size:11px; color:var(--muted); display:block; text-align:center; padding:0 8px; }
 .av-loaded { font-size:10px; color:var(--accent); margin-bottom:6px; display:none; }
@@ -521,7 +521,7 @@ input[type=range]::-webkit-slider-thumb {
       <span style="font-size:12px;color:var(--muted);">With audio</span>
       <span id="convert-status" style="font-size:10px;margin-left:auto;"></span>
     </div>
-    <button id="mv-rec-btn" class="rec-btn-style" style="background:rgba(80,40,120,0.85);min-height:100px;font-size:15px;letter-spacing:0.15em;margin-bottom:0;" disabled>Record MV</button>
+    <button id="mv-rec-btn" class="rec-btn-style" style="background:rgba(80,40,120,0.85);height:60px;max-height:60px;font-size:15px;letter-spacing:0.15em;margin-bottom:0;" disabled>Record MV</button>
     <button id="mp4-btn" class="mp4-btn-style" style="display:none;margin-bottom:0;" disabled>Convert to MP4</button>
   </div>
 
@@ -626,10 +626,14 @@ function setConvertStatus(t){ convertStatusEl.textContent=t; }
 
 // 背景画像
 const bgImg = new Image();
+let bgImageBitmap = null;
 
 function loadImage(file){
   const reader=new FileReader();
   reader.onload=e=>{
+    bgImg.onload = () => {
+      createImageBitmap(bgImg).then(bm => { bgImageBitmap = bm; });
+    };
     bgImg.src=e.target.result;
     dropZone.classList.add('hidden');
     // ビデオがロードされていた場合はクリア（後優先）
@@ -697,10 +701,12 @@ bindKBSlider('sl-kb-dur','val-kb-dur',v=>{KB_DURATION=parseInt(v)*1000;});
 
 function easeInOut(t){return t<0.5?2*t*t:-1+(4-2*t)*t;}
 function getKBTransform(p){
-  const seg=KB_FRAMES.length-1,pos=p*seg;
-  const i=Math.min(Math.floor(pos),seg-1),t=easeInOut(pos-i);
-  const a=KB_FRAMES[i],b=KB_FRAMES[i+1];
-  return {scale:a.scale+(b.scale-a.scale)*t,tx:a.tx+(b.tx-a.tx)*t,ty:a.ty+(b.ty-a.ty)*t};
+  // 連続サイン波でシームレスなケン・バーンズ（セグメント境界なし）
+  const a = 2 * Math.PI * p;
+  const scale = 1 + (kbZoom - 1) * (1 - Math.cos(a)) / 2;
+  const tx = kbPan * Math.sin(a) * 2.0;
+  const ty = kbPan * Math.sin(2 * a) * 0.9;
+  return {scale, tx, ty};
 }
 
 // Canvas resize
@@ -815,20 +821,20 @@ function drawMain(ts){
       const dw=vw*sc, dh=vh*sc;
       const dx = W/2 + W*bgPosX - dw/2;
       const dy = padPx + drawH/2 + drawH*bgPosY - dh/2;
-      mctx.save(); mctx.rect(0,0,W,H); mctx.clip();
+      mctx.save(); mctx.beginPath(); mctx.rect(0,0,W,H); mctx.clip();
       mctx.drawImage(bgVideoEl,dx,dy,dw,dh);
       mctx.restore();
     }
-  } else if(bgImg.complete&&bgImg.naturalWidth>0){
-    const iw=bgImg.naturalWidth, ih=bgImg.naturalHeight;
+  } else if(bgImageBitmap){
+    const iw=bgImageBitmap.width, ih=bgImageBitmap.height;
     const sc = isPortrait
       ? drawH/ih * kb.scale
       : Math.min(W/iw, drawH/ih) * kb.scale;
     const dw=iw*sc, dh=ih*sc;
     const dx = W/2 + W*(kb.tx/100 + bgPosX) - dw/2;
     const dy = padPx + drawH/2 + drawH*(kb.ty/100 + bgPosY) - dh/2;
-    mctx.save(); mctx.rect(0,0,W,H); mctx.clip();
-    mctx.drawImage(bgImg,dx,dy,dw,dh);
+    mctx.save(); mctx.beginPath(); mctx.rect(0,0,W,H); mctx.clip();
+    mctx.drawImage(bgImageBitmap,dx,dy,dw,dh);
     mctx.restore();
   }
   if(state.glow){
@@ -1348,7 +1354,7 @@ function loadMediaFile(file){
       bgVideoEl.currentTime = 1e-5;
     }, {once: true});
     // 画像がロードされていた場合はクリア（後優先）
-    bgImg.src = '';
+    bgImg.src = ''; bgImageBitmap = null;
     dropZone.classList.add('hidden');
     document.getElementById('av-mode-label').textContent = 'Video mode — Ken Burns disabled';
     document.getElementById('av-mode-label').style.display = 'block';
@@ -1717,7 +1723,7 @@ mvRecBtn.addEventListener('click', ()=>{
 
 function startMvRec(){
   if(!audioEl){ alert('Please load an audio or video file first'); return; }
-  if(!isVideoMode && (!bgImg.complete || !bgImg.naturalWidth)){ alert('Please load an image first'); return; }
+  if(!isVideoMode && !bgImageBitmap){ alert('Please load an image first'); return; }
 
   // 先頭に戻してから3秒カウントダウン
   audioEl.currentTime = 0;
