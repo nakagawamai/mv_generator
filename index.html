@@ -527,11 +527,12 @@ input[type=range]::-webkit-slider-thumb {
           <span id="lrc-cur-time" style="font-size:13px;font-family:monospace;color:var(--text);margin-left:4px;">0:00</span>
           <span style="font-size:10px;color:var(--muted);margin-left:auto;" id="lrc-total-time"></span>
         </div>
+        <button id="lrc-stamp-btn" style="width:100%;padding:12px;margin-top:6px;font-size:15px;font-family:inherit;border:2px solid rgba(200,169,110,0.5);background:rgba(200,169,110,0.15);color:var(--accent);border-radius:6px;cursor:pointer;letter-spacing:0.1em;transition:background 0.1s;">⏱ STAMP</button>
         <input type="range" id="lrc-seek" min="0" max="100" value="0" step="0.1" style="width:100%;">
       </div>
       <p class="lrc-hint">
         Click row → jump to position / Click timestamp → select row<br>
-        Selected row: <kbd>Space</kbd> → stamp /  <kbd>P</kbd> or <kbd>Enter</kbd> → play/stop
+        Tap <b>⏱ STAMP</b> (or <kbd>Space</kbd>) to stamp / <kbd>P</kbd> or <kbd>Enter</kbd> → play/stop
       </p>
       <div id="lrc-lines-wrap"></div>
       <div class="lrc-footer">
@@ -1595,6 +1596,30 @@ let lastActiveIdx=-1;
 })();
 
 // キーボード操作（エディター表示中のみ）
+function lrcDoStamp(){
+  if(document.getElementById('lrc-step2').style.display==='none') return;
+  if(!audioEl) return;
+  const t = audioEl.currentTime;
+  if(selectedIdx>=0){
+    editorLines[selectedIdx].time=t;
+    if(selectedIdx<editorLines.length-1) selectedIdx++;
+  } else {
+    const ni=editorLines.findIndex(l=>l.time===null);
+    if(ni>=0){ editorLines[ni].time=t; selectedIdx=Math.min(ni+1,editorLines.length-1); }
+  }
+  renderLines();
+  const rows=document.getElementById('lrc-lines-wrap').querySelectorAll('.lrc-line-row');
+  if(rows[selectedIdx]) rows[selectedIdx].scrollIntoView({block:'nearest'});
+}
+
+document.getElementById('lrc-stamp-btn').addEventListener('click', ()=>{
+  lrcDoStamp();
+  // タップフィードバック
+  const btn = document.getElementById('lrc-stamp-btn');
+  btn.style.background = 'rgba(200,169,110,0.4)';
+  setTimeout(()=>{ btn.style.background = 'rgba(200,169,110,0.15)'; }, 120);
+});
+
 document.addEventListener('keydown', e=>{
   if(lrcModal.style.display==='none') return;
   if(e.target===document.getElementById('lrc-textarea')) return;
@@ -1602,19 +1627,7 @@ document.addEventListener('keydown', e=>{
 
   if(e.code==='Space'){
     e.preventDefault();
-    if(document.getElementById('lrc-step2').style.display==='none') return;
-    if(!audioEl) return;
-    const t = audioEl.currentTime;
-    if(selectedIdx>=0){
-      editorLines[selectedIdx].time=t;
-      if(selectedIdx<editorLines.length-1) selectedIdx++;
-    } else {
-      const ni=editorLines.findIndex(l=>l.time===null);
-      if(ni>=0){ editorLines[ni].time=t; selectedIdx=Math.min(ni+1,editorLines.length-1); }
-    }
-    renderLines();
-    const rows=document.getElementById('lrc-lines-wrap').querySelectorAll('.lrc-line-row');
-    if(rows[selectedIdx]) rows[selectedIdx].scrollIntoView({block:'nearest'});
+    lrcDoStamp();
   }
   if(e.code==='KeyP'||e.code==='Enter'){
     e.preventDefault();
