@@ -1293,6 +1293,11 @@ function loadMediaFile(file){
     bgVideoEl.playsInline = true;
     bgVideoEl.preload = 'auto';
     audioEl = bgVideoEl;
+    // モバイルは preload を無視するため loadedmetadata 後にシークして
+    // 最初のフレームを強制ロード（readyState を 2 以上にする）
+    bgVideoEl.addEventListener('loadedmetadata', () => {
+      bgVideoEl.currentTime = 1e-5;
+    }, {once: true});
     document.getElementById('av-mode-label').textContent = 'Video mode — Ken Burns disabled';
     document.getElementById('av-mode-label').style.display = 'block';
     const toggle = document.getElementById('mv-audio-toggle');
