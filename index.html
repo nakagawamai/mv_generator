@@ -178,8 +178,15 @@ input[type=range]::-webkit-slider-thumb {
 .av-sl-label { font-size:10px; color:var(--muted); margin-bottom:3px; display:flex; justify-content:space-between; }
 
 /* 歌詞オーバーレイ */
-#lyric-overlay { position:absolute; left:0; right:0; text-align:center; pointer-events:none; z-index:15; padding:0 5%; }
+#lyric-overlay { position:absolute; pointer-events:none; z-index:15; text-align:center; }
 #lyric-line { display:inline-block; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,0.9),0 0 30px rgba(0,0,0,0.6); letter-spacing:0.12em; line-height:1.6; white-space:pre-wrap; }
+@keyframes lyric-burst-in {
+  0%   { transform:scale(0.2); opacity:0; }
+  55%  { transform:scale(1.18); opacity:1; }
+  75%  { transform:scale(0.95); }
+  100% { transform:scale(1); opacity:1; }
+}
+.lyric-burst { animation:lyric-burst-in var(--burst-dur,0.45s) cubic-bezier(0.34,1.56,0.64,1) both; }
 
 /* LRCエディター モーダル */
 #lrc-modal { display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.88); overflow-y:auto; }
@@ -271,19 +278,39 @@ input[type=range]::-webkit-slider-thumb {
         <div style="margin-top:10px;padding:0 14px 14px;">
           <div class="av-sl-label"><span>Lyric size</span><span id="val-lyric-size">100%</span></div>
           <input type="range" id="sl-lyric-size" min="50" max="200" value="100" style="width:100%;margin-bottom:6px;">
-          <div class="av-sl-label"><span>Position</span><span id="val-lyric-pos">80%</span></div>
-          <input type="range" id="sl-lyric-pos" min="5" max="90" value="80" style="width:100%;margin-bottom:6px;">
+          <div class="av-sl-label"><span>Y Position</span><span id="val-lyric-pos">80%</span></div>
+          <input type="range" id="sl-lyric-pos" min="5" max="95" value="80" style="width:100%;margin-bottom:6px;">
+          <div class="av-sl-label"><span>X Position</span><span id="val-lyric-posx">50%</span></div>
+          <input type="range" id="sl-lyric-posx" min="5" max="95" value="50" style="width:100%;margin-bottom:6px;">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
             <span style="font-size:10px;color:var(--muted);">Color</span>
             <input type="color" id="lyric-color" value="#ffffff" style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;">
             <span style="font-size:10px;color:var(--muted);">Shadow</span>
             <input type="color" id="lyric-shadow" value="#000000" style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;">
+            <span style="font-size:10px;color:var(--muted);">Stroke</span>
+            <input type="color" id="lyric-stroke-color" value="#000000" style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;">
           </div>
-          <select id="lyric-font" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:4px;font-size:10px;cursor:pointer;">
+          <div class="av-sl-label"><span>Stroke width</span><span id="val-lyric-stroke">0px</span></div>
+          <input type="range" id="sl-lyric-stroke" min="0" max="20" value="0" style="width:100%;margin-bottom:6px;">
+          <select id="lyric-font" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:4px;font-size:10px;cursor:pointer;margin-bottom:6px;">
             <option value="'Noto Serif JP', Georgia, serif">Serif JP (明朝)</option>
             <option value="Georgia,serif">Serif (Georgia)</option>
             <option value="sans-serif">Sans-serif</option>
           </select>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+            <span style="font-size:10px;color:var(--muted);">Writing</span>
+            <button id="lyric-vertical-btn" style="font-size:10px;padding:2px 8px;background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--text);border-radius:3px;cursor:pointer;">横書き</button>
+          </div>
+          <div class="av-sl-label"><span>Effect</span></div>
+          <select id="lyric-effect" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:4px;font-size:10px;cursor:pointer;margin-bottom:6px;">
+            <option value="none">None</option>
+            <option value="typewriter">Typewriter</option>
+            <option value="burst">Burst</option>
+          </select>
+          <div id="lyric-effect-speed-row" style="display:none;">
+            <div class="av-sl-label"><span id="lyric-effect-speed-label">Speed</span><span id="val-lyric-effect-speed">10</span></div>
+            <input type="range" id="sl-lyric-effect-speed" min="1" max="20" value="10" style="width:100%;margin-bottom:6px;">
+          </div>
         </div>
       </div>
 
@@ -695,10 +722,19 @@ function updateLyricOverlay(){
   const scale = dispH / canvasH;
   const fs = Math.round(Math.min(canvasW, canvasH) * 0.045 * (lrcState.size/100) * scale);
   line.style.fontSize = Math.max(10, fs) + 'px';
-  overlay.style.left = offsetX + 'px';
-  overlay.style.width = dispW + 'px';
-  overlay.style.top = (offsetY + Math.round(dispH * lrcState.pos / 100)) + 'px';
-  overlay.style.transform = 'translateY(-50%)';
+
+  const cx = offsetX + Math.round(dispW * lrcState.posX / 100);
+  const cy = offsetY + Math.round(dispH * lrcState.pos / 100);
+  overlay.style.left = cx + 'px';
+  overlay.style.top  = cy + 'px';
+  overlay.style.width = lrcState.vertical ? 'auto' : Math.round(dispW * 0.88) + 'px';
+  overlay.style.maxWidth = Math.round(dispW * 0.88) + 'px';
+  overlay.style.transform = 'translate(-50%, -50%)';
+
+  // 縦書き
+  line.style.writingMode      = lrcState.vertical ? 'vertical-rl' : '';
+  line.style.textOrientation  = lrcState.vertical ? 'mixed' : '';
+  line.style.letterSpacing    = lrcState.vertical ? '0.08em' : '0.12em';
 }
 window.addEventListener('resize',()=>{resizeCanvases();initRain();initParticles();initFog();initClouds();initStars();});
 
@@ -946,22 +982,11 @@ function startRec(){
   requestAnimationFrame(ts=>{
     kbStart=ts;
     let compRaf;
-    function compose(){
+    function compose(now){
       octx.clearRect(0,0,W,H);
       octx.drawImage(mainCanvas,0,0);
       octx.drawImage(fxCanvas,0,0);
-      // 歌詞をcanvasに合成
-      const txt = document.getElementById('lyric-line').textContent;
-      if(txt){
-        const fs = Math.round(Math.min(W,H)*0.045*(lrcState.size/100));
-        octx.save();
-        octx.font=`${fs}px ${lrcState.font}`;
-        octx.textAlign='center'; octx.textBaseline='middle';
-        octx.shadowColor=lrcState.shadow; octx.shadowBlur=18;
-        octx.fillStyle=lrcState.color;
-        octx.fillText(txt, W/2, H*(lrcState.pos/100));
-        octx.restore();
-      }
+      drawLyricOnCanvas(octx, W, H, document.getElementById('lyric-line').textContent, now||performance.now());
       compRaf=requestAnimationFrame(compose);
     }
     compose();
@@ -1063,7 +1088,9 @@ let selectedIdx = -1;
 let editorRafId = null;
 let isSeeking = false;
 
-const lrcState = { size:100, pos:80, color:'#ffffff', shadow:'#000000', font:'Georgia,serif' };
+const lrcState = { size:100, pos:80, posX:50, color:'#ffffff', shadow:'#000000', font:'Georgia,serif', strokeColor:'#000000', strokeWidth:0, vertical:false, effect:'none', effectSpeed:10 };
+let lyricChangeTime = 0;   // performance.now() 時刻（ライン切り替わり検出用）
+let lyricPrevRaw = '';     // 直前の生テキスト（変更検出用）
 
 // ── 歌詞オーバーレイ（RAFで常時更新）──
 const lyricLine = document.getElementById('lyric-line');
@@ -1073,9 +1100,34 @@ const lyricOverlay = document.getElementById('lyric-overlay');
     const t = audioEl.currentTime;
     let cur = '';
     for(const l of lrcLines){ if(l.time <= t) cur = l.text; else break; }
-    lyricLine.textContent = cur;
+
+    // ライン切り替わり検出
+    if(cur !== lyricPrevRaw){
+      lyricPrevRaw = cur;
+      lyricChangeTime = performance.now();
+      if(lrcState.effect === 'burst' && cur){
+        lyricLine.style.setProperty('--burst-dur', (0.8 / lrcState.effectSpeed).toFixed(2) + 's');
+        lyricLine.classList.remove('lyric-burst');
+        void lyricLine.offsetWidth; // reflow
+        lyricLine.classList.add('lyric-burst');
+      } else {
+        lyricLine.classList.remove('lyric-burst');
+      }
+    }
+
+    // タイプライター：表示文字数を時間で制御
+    if(lrcState.effect === 'typewriter' && cur){
+      const elapsed = (performance.now() - lyricChangeTime) / 1000;
+      const chars = [...cur];
+      const visible = Math.min(chars.length, Math.floor(elapsed * lrcState.effectSpeed * 3));
+      lyricLine.textContent = chars.slice(0, visible).join('');
+    } else {
+      lyricLine.textContent = cur;
+    }
   } else {
     lyricLine.textContent = '';
+    lyricPrevRaw = '';
+    lyricLine.classList.remove('lyric-burst');
   }
   requestAnimationFrame(lyricLoop);
 })();
@@ -1091,15 +1143,99 @@ function applyLyricStyle(){
   line.style.letterSpacing = '0.12em';
   line.style.lineHeight = '1.6';
   line.style.whiteSpace = 'pre-wrap';
+  if(lrcState.strokeWidth > 0){
+    line.style.webkitTextStroke = `${lrcState.strokeWidth}px ${lrcState.strokeColor}`;
+    line.style.paintOrder = 'stroke fill';
+  } else {
+    line.style.webkitTextStroke = '';
+    line.style.paintOrder = '';
+  }
   updateLyricOverlay();
 }
 applyLyricStyle();
 
 document.getElementById('sl-lyric-size').addEventListener('input', function(){ lrcState.size=+this.value; document.getElementById('val-lyric-size').textContent=this.value+'%'; applyLyricStyle(); });
 document.getElementById('sl-lyric-pos').addEventListener('input', function(){ lrcState.pos=+this.value; document.getElementById('val-lyric-pos').textContent=this.value+'%'; applyLyricStyle(); });
+document.getElementById('sl-lyric-posx').addEventListener('input', function(){ lrcState.posX=+this.value; document.getElementById('val-lyric-posx').textContent=this.value+'%'; applyLyricStyle(); });
 document.getElementById('lyric-color').addEventListener('input', function(){ lrcState.color=this.value; applyLyricStyle(); });
 document.getElementById('lyric-shadow').addEventListener('input', function(){ lrcState.shadow=this.value; applyLyricStyle(); });
 document.getElementById('lyric-font').addEventListener('change', function(){ lrcState.font=this.value; applyLyricStyle(); });
+document.getElementById('lyric-stroke-color').addEventListener('input', function(){ lrcState.strokeColor=this.value; applyLyricStyle(); });
+document.getElementById('sl-lyric-stroke').addEventListener('input', function(){ lrcState.strokeWidth=+this.value; document.getElementById('val-lyric-stroke').textContent=this.value+'px'; applyLyricStyle(); });
+document.getElementById('lyric-vertical-btn').addEventListener('click', function(){
+  lrcState.vertical = !lrcState.vertical;
+  this.textContent = lrcState.vertical ? '縦書き' : '横書き';
+  this.style.color = lrcState.vertical ? 'var(--accent)' : 'var(--text)';
+  applyLyricStyle();
+});
+document.getElementById('lyric-effect').addEventListener('change', function(){
+  lrcState.effect = this.value;
+  const row = document.getElementById('lyric-effect-speed-row');
+  row.style.display = this.value === 'none' ? 'none' : '';
+  document.getElementById('lyric-effect-speed-label').textContent = this.value === 'typewriter' ? 'Speed (chars/s×3)' : 'Intensity';
+  lyricPrevRaw = ''; // 強制リセットでエフェクト再トリガー
+});
+document.getElementById('sl-lyric-effect-speed').addEventListener('input', function(){
+  lrcState.effectSpeed = +this.value;
+  document.getElementById('val-lyric-effect-speed').textContent = this.value;
+  lyricPrevRaw = '';
+});
+
+// ── canvas歌詞描画ヘルパー ──────────────────────────────────────
+function drawLyricOnCanvas(ctx, W, H, txt, now){
+  if(!txt) return;
+  const fs = Math.round(Math.min(W,H)*0.045*(lrcState.size/100));
+  const cx = W*(lrcState.posX/100);
+  const cy = H*(lrcState.pos/100);
+  ctx.save();
+  ctx.font = `${fs}px ${lrcState.font}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Burst：スケールアニメーション
+  if(lrcState.effect === 'burst'){
+    const elapsed = (now - lyricChangeTime) / 1000;
+    const dur = 0.8 / lrcState.effectSpeed;
+    const t = Math.min(1, elapsed / dur);
+    // easeOutElastic
+    const scale = t >= 1 ? 1 : 1 + Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3));
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+  }
+
+  const drawAtX = cx, drawAtY = cy;
+  ctx.shadowColor = lrcState.shadow;
+  ctx.shadowBlur  = 18;
+
+  if(lrcState.vertical){
+    // 縦書き：1文字ずつ縦に並べる
+    const chars = [...txt];
+    const lineH = fs * 1.25;
+    const totalH = chars.length * lineH;
+    for(let i=0; i<chars.length; i++){
+      const charY = drawAtY - totalH/2 + i*lineH + lineH/2;
+      if(lrcState.strokeWidth > 0){
+        ctx.lineWidth = lrcState.strokeWidth*2; ctx.strokeStyle = lrcState.strokeColor; ctx.lineJoin='round';
+        const sc=ctx.shadowColor; ctx.shadowColor='transparent';
+        ctx.strokeText(chars[i], drawAtX, charY);
+        ctx.shadowColor=sc;
+      }
+      ctx.fillStyle = lrcState.color;
+      ctx.fillText(chars[i], drawAtX, charY);
+    }
+  } else {
+    if(lrcState.strokeWidth > 0){
+      ctx.lineWidth = lrcState.strokeWidth*2; ctx.strokeStyle = lrcState.strokeColor; ctx.lineJoin='round';
+      const sc=ctx.shadowColor; ctx.shadowColor='transparent';
+      ctx.strokeText(txt, drawAtX, drawAtY);
+      ctx.shadowColor=sc;
+    }
+    ctx.fillStyle = lrcState.color;
+    ctx.fillText(txt, drawAtX, drawAtY);
+  }
+  ctx.restore();
+}
 
 // 背景色モード切り替え
 document.getElementById('bg-fill-mode').addEventListener('change', function(){
@@ -1561,21 +1697,11 @@ function _startRecordingWithEl(recAudioEl){
   const octx = off.getContext('2d');
 
   let compRaf;
-  function compose(){
+  function compose(now){
     octx.clearRect(0,0,W,H);
     octx.drawImage(mainCanvas,0,0);
     octx.drawImage(fxCanvas,0,0);
-    const txt = document.getElementById('lyric-line').textContent;
-    if(txt){
-      const fs = Math.round(Math.min(W,H)*0.045*(lrcState.size/100));
-      octx.save();
-      octx.font=`${fs}px ${lrcState.font}`;
-      octx.textAlign='center'; octx.textBaseline='middle';
-      octx.shadowColor=lrcState.shadow; octx.shadowBlur=18;
-      octx.fillStyle=lrcState.color;
-      octx.fillText(txt, W/2, H*(lrcState.pos/100));
-      octx.restore();
-    }
+    drawLyricOnCanvas(octx, W, H, document.getElementById('lyric-line').textContent, now||performance.now());
     compRaf = requestAnimationFrame(compose);
   }
   compose();
