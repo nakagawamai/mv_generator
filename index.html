@@ -36,7 +36,7 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 
 /* SP：縦並び（プレビュー上、パネル下スクロール） */
 @media (max-width:600px) {
-  #app { grid-template-columns:1fr; grid-template-rows:auto 1fr; }
+  #app { grid-template-columns:1fr; grid-template-rows:auto 1fr; height:100vh; height:100dvh; }
   #preview-wrap {
     position:relative;
     width:100%;
@@ -45,6 +45,8 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
     overflow-y:auto;
     overflow-x:hidden;
     -webkit-overflow-scrolling:touch;
+    min-height:0;          /* グリッドアイテムが収縮してスクロールを有効化 */
+    padding-bottom:env(safe-area-inset-bottom, 24px); /* iOS ホームバー対応 */
   }
 }
 
@@ -334,6 +336,9 @@ input[type=range]::-webkit-slider-thumb {
         <div class="sl-block" style="padding:0 0 10px;">
           <div class="sl-header">Image padding (top/bottom)<span class="sl-val" id="val-bg-padding">0%</span></div>
           <input type="range" id="sl-bg-padding" min="0" max="40" value="0" step="1">
+        </div>
+        <div style="font-size:10px;color:#c8a020;background:rgba(200,160,32,0.1);border:1px solid rgba(200,160,32,0.3);border-radius:4px;padding:6px 8px;margin-bottom:8px;line-height:1.5;">
+          ⚠️ 録画中はこのタブをアクティブ（最前面）にしてください。<br>バックグラウンドでは映像・歌詞が正しく記録されません。
         </div>
         <span class="rec-status" id="rec-status">Ready</span>
         <div class="rec-progress"><div id="rec-bar"></div></div>
