@@ -1268,16 +1268,28 @@ function drawLyricOnCanvas(ctx, W, H, txt, now){
     const chars = [...txt];
     const lineH = fs * 1.25;
     const totalH = chars.length * lineH;
+    // CSS writing-mode:vertical-rl が自動で90°回転させる文字群
+    const ROTATE90 = new Set([
+      '、','。','「','」','『','』','【','】','〔','〕','〈','〉','《','》',
+      '〜','～','ー','！','？','…','‥','（','）','，','－','〽','︑','︒',
+      '!','?','(',')','-','~'
+    ]);
     for(let i=0; i<chars.length; i++){
       const charY = drawAtY - totalH/2 + i*lineH + lineH/2;
+      const needsRot = ROTATE90.has(chars[i]);
+      ctx.save();
+      // 回転が必要な文字はキャラクター中心へ移動して90°回転
+      ctx.translate(drawAtX, charY);
+      if(needsRot) ctx.rotate(Math.PI / 2);
       if(lrcState.strokeWidth > 0){
         ctx.lineWidth = lrcState.strokeWidth*2; ctx.strokeStyle = lrcState.strokeColor; ctx.lineJoin='round';
-        const sc=ctx.shadowColor; ctx.shadowColor='transparent';
-        ctx.strokeText(chars[i], drawAtX, charY);
-        ctx.shadowColor=sc;
+        ctx.shadowColor='transparent';
+        ctx.strokeText(chars[i], 0, 0);
+        ctx.shadowColor = lrcState.shadow;
       }
       ctx.fillStyle = lrcState.color;
-      ctx.fillText(chars[i], drawAtX, charY);
+      ctx.fillText(chars[i], 0, 0);
+      ctx.restore();
     }
   } else {
     if(lrcState.strokeWidth > 0){
