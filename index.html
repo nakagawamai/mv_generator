@@ -50,10 +50,12 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
   #preview-wrap { position:relative; }
 }
 
-#main-canvas, #fx-canvas {
+#main-canvas, #fx-canvas, #ambient-paint-canvas {
   position:absolute; inset:0; width:100%; height:100%;
 }
 #fx-canvas { pointer-events:none; }
+#ambient-paint-canvas { display:none; cursor:crosshair; z-index:12; }
+#ambient-paint-canvas.active { display:block; }
 
 #credit {
   position:absolute; top:3%; right:2%;
@@ -239,6 +241,7 @@ input[type=range]::-webkit-slider-thumb {
   <div id="preview-wrap">
     <canvas id="main-canvas"></canvas>
     <canvas id="fx-canvas"></canvas>
+    <canvas id="ambient-paint-canvas"></canvas>
     <div id="credit">mAii</div>
     <div id="countdown"><div id="countdown-inner"></div></div>
     <div id="drop-zone">
@@ -258,6 +261,7 @@ input[type=range]::-webkit-slider-thumb {
     <div id="tab-bar">
       <button class="tab-btn active" onclick="switchTab('tab-av')">Audio & Lyrics</button>
       <button class="tab-btn" onclick="switchTab('tab-fx')">Effects</button>
+      <button class="tab-btn" onclick="switchTab('tab-ambient')">Ambient</button>
     </div>
 
     <!-- 音声 & 歌詞タブ -->
@@ -512,6 +516,44 @@ input[type=range]::-webkit-slider-thumb {
 
     </div><!-- /tab-fx -->
 
+    <!-- アンビエントモーションタブ（Phase 1: 雲チャンネルのみ） -->
+    <div id="tab-ambient" class="tab-pane">
+      <div class="av-section">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <label class="toggle-wrap"><input type="checkbox" id="ambient-enable"><div class="toggle-track"></div></label>
+          <span style="font-size:12px;color:var(--text);">Ambient Motion を有効化</span>
+        </div>
+        <div id="ambient-video-warning" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;">動画モードでは使用できません（静止画のみ対応）。</div>
+        <div id="ambient-noimg-warning" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;">先に画像をアップロードしてください。</div>
+
+        <div id="ambient-controls">
+          <div class="av-row" style="margin-bottom:8px;">
+            <button class="av-btn ambient-brush-btn active" data-brush="cloud" style="flex:1;background:rgba(60,140,90,0.75);">雲（塗る）</button>
+            <button class="av-btn ambient-brush-btn" data-brush="eraser" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:var(--muted);">消しゴム</button>
+          </div>
+          <div class="sl-block">
+            <div class="sl-header">ブラシサイズ<span class="sl-val" id="val-ambient-brush-size">40</span></div>
+            <input type="range" id="sl-ambient-brush-size" min="10" max="120" value="40" step="2">
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <button id="ambient-mask-toggle" class="av-btn" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:var(--text);">マスク表示: ON</button>
+            <button id="ambient-mask-clear" class="av-btn" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:var(--muted);">全消去</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:14px;line-height:1.6;">プレビュー画面上に直接ブラシで塗ってください（緑=雲チャンネル）。</div>
+
+          <div class="sl-block">
+            <div class="sl-header">雲の強さ<span class="sl-val" id="val-ambient-cloud-amp">1.0</span></div>
+            <input type="range" id="sl-ambient-cloud-amp" min="0" max="2" value="1.0" step="0.05">
+          </div>
+          <div class="sl-block" style="margin-bottom:10px;">
+            <div class="sl-header">雲の速さ<span class="sl-val" id="val-ambient-cloud-speed">1.0</span></div>
+            <input type="range" id="sl-ambient-cloud-speed" min="0" max="2.5" value="1.0" step="0.05">
+          </div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6;">Playボタンを押すと動き出します（一時停止中は静止画のまま）。</div>
+        </div>
+      </div>
+    </div><!-- /tab-ambient -->
+
   </div><!-- /panel-scroll -->
 
   <!-- フッター：常時表示 Record MV ボタン -->
@@ -585,6 +627,7 @@ function switchTab(tabId){
   document.querySelectorAll('.tab-btn').forEach(b=>{
     if(b.getAttribute('onclick').includes(tabId)) b.classList.add('active');
   });
+  updateAmbientPaintVisibility();
 }
 
 const state = {
@@ -628,11 +671,203 @@ function setConvertStatus(t){ convertStatusEl.textContent=t; }
 const bgImg = new Image();
 let bgImageBitmap = null;
 
+// ── Ambient Motion（Phase 1: 雲チャンネルのみ）──────────────────
+const ambientState = { enabled:false, hasMask:false, brush:'cloud', brushSize:40, showMask:true, cloudAmp:1.0, cloudSpeed:1.0, cloudTime:0 };
+
+const AmbientMotionEngine = (() => {
+  const MASK_W = 800, MASK_H = 450;
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = MASK_W; maskCanvas.height = MASK_H;
+  const maskCtx = maskCanvas.getContext('2d');
+
+  let glCanvas = null, gl = null, program = null;
+  let imgTex = null, maskTex = null;
+  let texW = 0, texH = 0;
+  let maskDirty = true;
+  let lastTs = null;
+
+  const VERT_SRC = `
+    attribute vec2 aPos;
+    varying vec2 vUv;
+    void main(){
+      // クリップ空間の上下とテクスチャ(UNPACK_FLIP_Y_WEBGL済み)の上下を一致させる
+      vUv = vec2(aPos.x * 0.5 + 0.5, 0.5 - aPos.y * 0.5);
+      gl_Position = vec4(aPos, 0.0, 1.0);
+    }
+  `;
+  const FRAG_SRC = `
+    precision mediump float;
+    varying vec2 vUv;
+    uniform sampler2D uImage;
+    uniform sampler2D uMask;
+    uniform float uTime;
+    uniform float uAmp;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+    float noise(vec2 p){
+      vec2 i = floor(p); vec2 f = fract(p);
+      float a = hash(i), b = hash(i+vec2(1.0,0.0)), c = hash(i+vec2(0.0,1.0)), d = hash(i+vec2(1.0,1.0));
+      vec2 u = f*f*(3.0-2.0*f);
+      return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
+    }
+    float fbm(vec2 p){
+      float v=0.0, amp=0.5;
+      for(int i=0;i<4;i++){ v += amp*noise(p); p *= 2.0; amp *= 0.5; }
+      return v;
+    }
+    void main(){
+      float m = texture2D(uMask, vUv).g;
+      float n = fbm(vUv*3.0 + vec2(uTime*0.05, 0.0)) - 0.5;
+      vec2 offset = vec2(n * 0.03 * uAmp * m, 0.0);
+      gl_FragColor = texture2D(uImage, vUv + offset);
+    }
+  `;
+
+  function compileShader(type, src){
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)){
+      console.error('AmbientMotion shader error:', gl.getShaderInfoLog(sh));
+      gl.deleteShader(sh);
+      return null;
+    }
+    return sh;
+  }
+
+  function initGL(){
+    glCanvas = document.createElement('canvas');
+    gl = glCanvas.getContext('webgl', { premultipliedAlpha:false }) || glCanvas.getContext('experimental-webgl');
+    if(!gl) return false;
+    glCanvas.addEventListener('webglcontextlost', e => { e.preventDefault(); gl = null; }, false);
+
+    const vs = compileShader(gl.VERTEX_SHADER, VERT_SRC);
+    const fs = compileShader(gl.FRAGMENT_SHADER, FRAG_SRC);
+    if(!vs || !fs) return false;
+    program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if(!gl.getProgramParameter(program, gl.LINK_STATUS)){
+      console.error('AmbientMotion program link error:', gl.getProgramInfoLog(program));
+      return false;
+    }
+    gl.useProgram(program);
+
+    const quad = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(program, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    imgTex = gl.createTexture();
+    maskTex = gl.createTexture();
+    [imgTex, maskTex].forEach(tex => {
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    });
+    return true;
+  }
+
+  function ensureSize(w, h){
+    if(texW === w && texH === h) return;
+    texW = w; texH = h;
+    glCanvas.width = w; glCanvas.height = h;
+  }
+
+  function uploadImage(bitmap){
+    gl.bindTexture(gl.TEXTURE_2D, imgTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+  }
+
+  function uploadMask(){
+    gl.bindTexture(gl.TEXTURE_2D, maskTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskCanvas);
+    maskDirty = false;
+  }
+
+  function markMaskDirty(){ maskDirty = true; }
+
+  function render(bitmap, ts, animate){
+    if(!gl){ if(!initGL()) return null; }
+    if(!gl) return null;
+    const w = bitmap.width, h = bitmap.height;
+    ensureSize(w, h);
+    gl.viewport(0, 0, w, h);
+    uploadImage(bitmap);
+    if(maskDirty) uploadMask();
+
+    if(lastTs === null) lastTs = ts;
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    if(animate) ambientState.cloudTime += dt * ambientState.cloudSpeed;
+
+    gl.useProgram(program);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, imgTex);
+    gl.uniform1i(gl.getUniformLocation(program, 'uImage'), 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, maskTex);
+    gl.uniform1i(gl.getUniformLocation(program, 'uMask'), 1);
+    gl.uniform1f(gl.getUniformLocation(program, 'uTime'), ambientState.cloudTime);
+    gl.uniform1f(gl.getUniformLocation(program, 'uAmp'), ambientState.cloudAmp);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    return glCanvas;
+  }
+
+  function paintAt(mx, my, brush, size){
+    // mx,my は 0-1 正規化座標（左上原点）
+    const x = mx * MASK_W, y = my * MASK_H;
+    const r = size;
+    maskCtx.save();
+    if(brush === 'eraser'){
+      maskCtx.globalCompositeOperation = 'destination-out';
+      const grd = maskCtx.createRadialGradient(x,y,0,x,y,r);
+      grd.addColorStop(0,'rgba(255,255,255,0.9)');
+      grd.addColorStop(1,'rgba(255,255,255,0)');
+      maskCtx.fillStyle = grd;
+      maskCtx.beginPath(); maskCtx.arc(x,y,r,0,Math.PI*2); maskCtx.fill();
+    } else {
+      // 雲チャンネル → G成分に加算描画
+      maskCtx.globalCompositeOperation = 'lighter';
+      const grd = maskCtx.createRadialGradient(x,y,0,x,y,r);
+      grd.addColorStop(0,'rgba(0,255,0,0.5)');
+      grd.addColorStop(1,'rgba(0,255,0,0)');
+      maskCtx.fillStyle = grd;
+      maskCtx.beginPath(); maskCtx.arc(x,y,r,0,Math.PI*2); maskCtx.fill();
+    }
+    maskCtx.restore();
+    markMaskDirty();
+    ambientState.hasMask = true;
+  }
+
+  function clearMask(){
+    maskCtx.clearRect(0,0,MASK_W,MASK_H);
+    markMaskDirty();
+    ambientState.hasMask = false;
+  }
+
+  function getMaskCanvas(){ return maskCanvas; }
+
+  return { render, paintAt, clearMask, getMaskCanvas, MASK_W, MASK_H };
+})();
+
 function loadImage(file){
   const reader=new FileReader();
   reader.onload=e=>{
     bgImg.onload = () => {
-      createImageBitmap(bgImg).then(bm => { bgImageBitmap = bm; });
+      createImageBitmap(bgImg).then(bm => {
+        bgImageBitmap = bm;
+        // 新しい画像なのでアンビエントモーションのマスクはリセット
+        AmbientMotionEngine.clearMask();
+        updateAmbientTabState();
+      });
     };
     bgImg.src=e.target.result;
     dropZone.classList.add('hidden');
@@ -753,6 +988,12 @@ function resizeCanvases(){
   mainCanvas.style.left = offsetX+'px'; mainCanvas.style.top = offsetY+'px';
   fxCanvas.style.width = dispW+'px'; fxCanvas.style.height = dispH+'px';
   fxCanvas.style.left = offsetX+'px'; fxCanvas.style.top = offsetY+'px';
+  const ambientPaintCanvas = document.getElementById('ambient-paint-canvas');
+  if(ambientPaintCanvas){
+    ambientPaintCanvas.width = AmbientMotionEngine.MASK_W; ambientPaintCanvas.height = AmbientMotionEngine.MASK_H;
+    ambientPaintCanvas.style.width = dispW+'px'; ambientPaintCanvas.style.height = dispH+'px';
+    ambientPaintCanvas.style.left = offsetX+'px'; ambientPaintCanvas.style.top = offsetY+'px';
+  }
 
   // 歌詞オーバーレイもプレビューサイズに合わせる
   updateLyricOverlay();
@@ -833,8 +1074,13 @@ function drawMain(ts){
     const dw=iw*sc, dh=ih*sc;
     const dx = W/2 + W*(kb.tx/100 + bgPosX) - dw/2;
     const dy = padPx + drawH/2 + drawH*(kb.ty/100 + bgPosY) - dh/2;
+    let bgSource = bgImageBitmap;
+    if(ambientState.enabled && ambientState.hasMask){
+      const rendered = AmbientMotionEngine.render(bgImageBitmap, ts, kbStart!==null);
+      if(rendered) bgSource = rendered;
+    }
     mctx.save(); mctx.beginPath(); mctx.rect(0,0,W,H); mctx.clip();
-    mctx.drawImage(bgImageBitmap,dx,dy,dw,dh);
+    mctx.drawImage(bgSource,dx,dy,dw,dh);
     mctx.restore();
   }
   if(state.glow){
@@ -1344,6 +1590,7 @@ function createAudioEl(){
 function loadMediaFile(file){
   const isVideo = file.type.startsWith('video/');
   isVideoMode = isVideo;
+  updateAmbientTabState();
 
   // 既存のメディアをクリア
   if(audioEl){ audioEl.pause(); audioEl=null; }
@@ -1972,6 +2219,107 @@ function stopMvRec(){
   setRecStatus('Ready');
   setRecBar(0);
 }
+
+// ── Ambient Motion UI（Phase 1: 雲チャンネルのみ）──────────────────
+const ambientPaintCanvas = document.getElementById('ambient-paint-canvas');
+const ambientPaintCtx = ambientPaintCanvas.getContext('2d');
+const ambientEnableCb = document.getElementById('ambient-enable');
+const ambientControls = document.getElementById('ambient-controls');
+const ambientVideoWarning = document.getElementById('ambient-video-warning');
+const ambientNoimgWarning = document.getElementById('ambient-noimg-warning');
+
+function updateAmbientTabState(){
+  const hasImage = !!bgImageBitmap;
+  ambientVideoWarning.style.display = isVideoMode ? 'block' : 'none';
+  ambientNoimgWarning.style.display = (!isVideoMode && !hasImage) ? 'block' : 'none';
+  ambientControls.style.display = (!isVideoMode && hasImage) ? 'block' : 'none';
+  redrawAmbientPaintOverlay();
+  updateAmbientPaintVisibility();
+}
+
+function updateAmbientPaintVisibility(){
+  const active = document.getElementById('tab-ambient').classList.contains('active');
+  const usable = active && !isVideoMode && !!bgImageBitmap;
+  ambientPaintCanvas.classList.toggle('active', usable);
+}
+
+function redrawAmbientPaintOverlay(){
+  const w = ambientPaintCanvas.width, h = ambientPaintCanvas.height;
+  ambientPaintCtx.clearRect(0,0,w,h);
+  if(bgImageBitmap){
+    ambientPaintCtx.drawImage(bgImageBitmap, 0, 0, w, h);
+  }
+  if(ambientState.showMask){
+    ambientPaintCtx.globalAlpha = 0.55;
+    ambientPaintCtx.drawImage(AmbientMotionEngine.getMaskCanvas(), 0, 0, w, h);
+    ambientPaintCtx.globalAlpha = 1;
+  }
+}
+
+function ambientPointerPos(e){
+  const rect = ambientPaintCanvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) / rect.width;
+  const my = (e.clientY - rect.top) / rect.height;
+  return { mx: Math.min(1,Math.max(0,mx)), my: Math.min(1,Math.max(0,my)) };
+}
+
+let ambientPainting = false;
+function ambientPaintStroke(e){
+  const { mx, my } = ambientPointerPos(e);
+  AmbientMotionEngine.paintAt(mx, my, ambientState.brush, ambientState.brushSize);
+  redrawAmbientPaintOverlay();
+}
+ambientPaintCanvas.addEventListener('pointerdown', e=>{
+  ambientPainting = true;
+  ambientPaintCanvas.setPointerCapture(e.pointerId);
+  ambientPaintStroke(e);
+});
+ambientPaintCanvas.addEventListener('pointermove', e=>{
+  if(ambientPainting) ambientPaintStroke(e);
+});
+ambientPaintCanvas.addEventListener('pointerup', ()=>{ ambientPainting = false; });
+ambientPaintCanvas.addEventListener('pointercancel', ()=>{ ambientPainting = false; });
+
+ambientEnableCb.addEventListener('change', function(){ ambientState.enabled = this.checked; });
+
+document.querySelectorAll('.ambient-brush-btn').forEach(btn=>{
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.ambient-brush-btn').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    ambientState.brush = this.dataset.brush;
+  });
+});
+
+const slAmbientBrushSize = document.getElementById('sl-ambient-brush-size');
+slAmbientBrushSize.addEventListener('input', function(){
+  ambientState.brushSize = parseFloat(this.value);
+  document.getElementById('val-ambient-brush-size').textContent = this.value;
+});
+
+const ambientMaskToggleBtn = document.getElementById('ambient-mask-toggle');
+ambientMaskToggleBtn.addEventListener('click', function(){
+  ambientState.showMask = !ambientState.showMask;
+  this.textContent = 'マスク表示: ' + (ambientState.showMask ? 'ON' : 'OFF');
+  redrawAmbientPaintOverlay();
+});
+
+document.getElementById('ambient-mask-clear').addEventListener('click', ()=>{
+  AmbientMotionEngine.clearMask();
+  redrawAmbientPaintOverlay();
+});
+
+const slAmbientCloudAmp = document.getElementById('sl-ambient-cloud-amp');
+slAmbientCloudAmp.addEventListener('input', function(){
+  ambientState.cloudAmp = parseFloat(this.value);
+  document.getElementById('val-ambient-cloud-amp').textContent = this.value;
+});
+const slAmbientCloudSpeed = document.getElementById('sl-ambient-cloud-speed');
+slAmbientCloudSpeed.addEventListener('input', function(){
+  ambientState.cloudSpeed = parseFloat(this.value);
+  document.getElementById('val-ambient-cloud-speed').textContent = this.value;
+});
+
+updateAmbientTabState();
 
 </script>
 </body>
