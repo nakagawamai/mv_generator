@@ -549,7 +549,7 @@ input[type=range]::-webkit-slider-thumb {
             <div class="sl-header">雲の速さ<span class="sl-val" id="val-ambient-cloud-speed">1.0</span></div>
             <input type="range" id="sl-ambient-cloud-speed" min="0" max="2.5" value="1.0" step="0.05">
           </div>
-          <div style="font-size:10px;color:var(--muted);line-height:1.6;">Playボタンを押すと動き出します（一時停止中は静止画のまま）。</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6;">塗った場所が常にゆっくり揺れ続けます（Ken Burnsと同様、Play中・停止中を問わず動きます）。</div>
         </div>
       </div>
     </div><!-- /tab-ambient -->
@@ -794,7 +794,7 @@ const AmbientMotionEngine = (() => {
 
   function markMaskDirty(){ maskDirty = true; }
 
-  function render(bitmap, ts, animate){
+  function render(bitmap, ts){
     if(!gl){ if(!initGL()) return null; }
     if(!gl) return null;
     const w = bitmap.width, h = bitmap.height;
@@ -803,10 +803,11 @@ const AmbientMotionEngine = (() => {
     uploadImage(bitmap);
     if(maskDirty) uploadMask();
 
+    // Ken Burnsのアイドルループ同様、Play停止中も常時アニメーションを進める
     if(lastTs === null) lastTs = ts;
     const dt = Math.min(0.05, (ts - lastTs) / 1000);
     lastTs = ts;
-    if(animate) ambientState.cloudTime += dt * ambientState.cloudSpeed;
+    ambientState.cloudTime += dt * ambientState.cloudSpeed;
 
     gl.useProgram(program);
     gl.activeTexture(gl.TEXTURE0);
@@ -1076,7 +1077,7 @@ function drawMain(ts){
     const dy = padPx + drawH/2 + drawH*(kb.ty/100 + bgPosY) - dh/2;
     let bgSource = bgImageBitmap;
     if(ambientState.enabled && ambientState.hasMask){
-      const rendered = AmbientMotionEngine.render(bgImageBitmap, ts, kbStart!==null);
+      const rendered = AmbientMotionEngine.render(bgImageBitmap, ts);
       if(rendered) bgSource = rendered;
     }
     mctx.save(); mctx.beginPath(); mctx.rect(0,0,W,H); mctx.clip();
