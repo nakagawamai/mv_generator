@@ -1096,6 +1096,7 @@ function drawMain(ts){
     mctx.save(); mctx.beginPath(); mctx.rect(0,0,W,H); mctx.clip();
     mctx.drawImage(bgSource,dx,dy,dw,dh);
     mctx.restore();
+    updateAmbientLivePreview(bgSource);
   }
   if(state.glow){
     glowPhase+=0.008;
@@ -2247,7 +2248,6 @@ function updateAmbientTabState(){
   ambientVideoWarning.style.display = isVideoMode ? 'block' : 'none';
   ambientNoimgWarning.style.display = (!isVideoMode && !hasImage) ? 'block' : 'none';
   ambientControls.style.display = (!isVideoMode && hasImage) ? 'block' : 'none';
-  redrawAmbientPaintOverlay();
   updateAmbientPaintVisibility();
 }
 
@@ -2257,12 +2257,13 @@ function updateAmbientPaintVisibility(){
   ambientPaintCanvas.classList.toggle('active', usable);
 }
 
-function redrawAmbientPaintOverlay(){
+// drawMain()から毎フレーム呼ばれ、Ambientタブが開いている間だけ
+// 実際に歪んだ結果（bgSource）をペイントキャンバスにライブ表示する
+function updateAmbientLivePreview(bgSource){
+  if(!ambientPaintCanvas.classList.contains('active')) return;
   const w = ambientPaintCanvas.width, h = ambientPaintCanvas.height;
   ambientPaintCtx.clearRect(0,0,w,h);
-  if(bgImageBitmap){
-    ambientPaintCtx.drawImage(bgImageBitmap, 0, 0, w, h);
-  }
+  ambientPaintCtx.drawImage(bgSource, 0, 0, w, h);
   if(ambientState.showMask){
     ambientPaintCtx.globalAlpha = 0.55;
     ambientPaintCtx.drawImage(AmbientMotionEngine.getMaskCanvas(), 0, 0, w, h);
@@ -2281,7 +2282,7 @@ let ambientPainting = false;
 function ambientPaintStroke(e){
   const { mx, my } = ambientPointerPos(e);
   AmbientMotionEngine.paintAt(mx, my, ambientState.brush, ambientState.brushSize);
-  redrawAmbientPaintOverlay();
+  // ペイントキャンバスの表示更新はdrawMain()の毎フレーム処理に任せる
 }
 ambientPaintCanvas.addEventListener('pointerdown', e=>{
   ambientPainting = true;
@@ -2314,12 +2315,10 @@ const ambientMaskToggleBtn = document.getElementById('ambient-mask-toggle');
 ambientMaskToggleBtn.addEventListener('click', function(){
   ambientState.showMask = !ambientState.showMask;
   this.textContent = 'マスク表示: ' + (ambientState.showMask ? 'ON' : 'OFF');
-  redrawAmbientPaintOverlay();
 });
 
 document.getElementById('ambient-mask-clear').addEventListener('click', ()=>{
   AmbientMotionEngine.clearMask();
-  redrawAmbientPaintOverlay();
 });
 
 const slAmbientCloudAmp = document.getElementById('sl-ambient-cloud-amp');
