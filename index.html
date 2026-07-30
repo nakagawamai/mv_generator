@@ -516,7 +516,7 @@ input[type=range]::-webkit-slider-thumb {
 
     </div><!-- /tab-fx -->
 
-    <!-- アンビエントモーションタブ（Phase 1: 雲チャンネルのみ） -->
+    <!-- アンビエントモーションタブ（明滅・灯り・雲・なびきの4チャンネル） -->
     <div id="tab-ambient" class="tab-pane">
       <div class="av-section">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -527,8 +527,15 @@ input[type=range]::-webkit-slider-thumb {
         <div id="ambient-noimg-warning" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;">先に画像をアップロードしてください。</div>
 
         <div id="ambient-controls">
+          <div class="av-row" style="margin-bottom:6px;">
+            <button class="av-btn ambient-brush-btn" data-brush="flicker" style="flex:1;background:rgba(210,150,40,0.75);">明滅</button>
+            <button class="av-btn ambient-brush-btn" data-brush="lantern" style="flex:1;background:rgba(190,60,60,0.75);">灯り</button>
+          </div>
           <div class="av-row" style="margin-bottom:8px;">
-            <button class="av-btn ambient-brush-btn active" data-brush="cloud" style="flex:1;background:rgba(60,140,90,0.75);">雲（塗る）</button>
+            <button class="av-btn ambient-brush-btn active" data-brush="cloud" style="flex:1;background:rgba(60,140,90,0.75);">雲</button>
+            <button class="av-btn ambient-brush-btn" data-brush="sway" style="flex:1;background:rgba(60,90,170,0.75);">なびき</button>
+          </div>
+          <div class="av-row" style="margin-bottom:8px;">
             <button class="av-btn ambient-brush-btn" data-brush="eraser" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:var(--muted);">消しゴム</button>
           </div>
           <div class="sl-block">
@@ -539,7 +546,25 @@ input[type=range]::-webkit-slider-thumb {
             <button id="ambient-mask-toggle" class="av-btn" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:var(--text);">マスク表示: ON</button>
             <button id="ambient-mask-clear" class="av-btn" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:var(--muted);">全消去</button>
           </div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:14px;line-height:1.6;">プレビュー画面上に直接ブラシで塗ってください（緑=雲チャンネル）。</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:14px;line-height:1.6;">プレビュー画面上に直接ブラシで塗ってください（琥珀=明滅／紅=灯り／緑=雲／青=なびき）。</div>
+
+          <div class="sl-block">
+            <div class="sl-header">明滅の強さ<span class="sl-val" id="val-ambient-flicker-amp">1.0</span></div>
+            <input type="range" id="sl-ambient-flicker-amp" min="0" max="2" value="1.0" step="0.05">
+          </div>
+          <div class="sl-block" style="margin-bottom:10px;">
+            <div class="sl-header">明滅の速さ<span class="sl-val" id="val-ambient-flicker-speed">1.0</span></div>
+            <input type="range" id="sl-ambient-flicker-speed" min="0" max="2.5" value="1.0" step="0.05">
+          </div>
+
+          <div class="sl-block">
+            <div class="sl-header">灯りの強さ<span class="sl-val" id="val-ambient-lantern-amp">1.0</span></div>
+            <input type="range" id="sl-ambient-lantern-amp" min="0" max="2" value="1.0" step="0.05">
+          </div>
+          <div class="sl-block" style="margin-bottom:10px;">
+            <div class="sl-header">灯りの速さ<span class="sl-val" id="val-ambient-lantern-speed">1.0</span></div>
+            <input type="range" id="sl-ambient-lantern-speed" min="0" max="2.5" value="1.0" step="0.05">
+          </div>
 
           <div class="sl-block">
             <div class="sl-header">雲の強さ<span class="sl-val" id="val-ambient-cloud-amp">1.0</span></div>
@@ -549,7 +574,16 @@ input[type=range]::-webkit-slider-thumb {
             <div class="sl-header">雲の速さ<span class="sl-val" id="val-ambient-cloud-speed">1.0</span></div>
             <input type="range" id="sl-ambient-cloud-speed" min="0" max="2.5" value="1.0" step="0.05">
           </div>
-          <div style="font-size:10px;color:var(--muted);line-height:1.6;">塗った場所が常にゆっくり揺れ続けます（Ken Burnsと同様、Play中・停止中を問わず動きます）。</div>
+
+          <div class="sl-block">
+            <div class="sl-header">なびきの強さ<span class="sl-val" id="val-ambient-sway-amp">1.0</span></div>
+            <input type="range" id="sl-ambient-sway-amp" min="0" max="2" value="1.0" step="0.05">
+          </div>
+          <div class="sl-block" style="margin-bottom:10px;">
+            <div class="sl-header">なびきの速さ<span class="sl-val" id="val-ambient-sway-speed">1.0</span></div>
+            <input type="range" id="sl-ambient-sway-speed" min="0" max="2.5" value="1.0" step="0.05">
+          </div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6;">塗った場所が常にゆっくり動き続けます（Ken Burnsと同様、Play中・停止中を問わず動きます）。</div>
         </div>
       </div>
     </div><!-- /tab-ambient -->
@@ -672,16 +706,29 @@ const bgImg = new Image();
 let bgImageBitmap = null;
 
 // ── Ambient Motion（Phase 1: 雲チャンネルのみ）──────────────────
-const ambientState = { enabled:false, hasMask:false, brush:'cloud', brushSize:40, showMask:true, cloudAmp:1.0, cloudSpeed:1.0, cloudTime:0 };
+const ambientState = {
+  enabled:false, hasMask:false, brush:'cloud', brushSize:40, showMask:true,
+  flicker:{ amp:1.0, speed:1.0, time:0 },
+  lantern:{ amp:1.0, speed:1.0, time:0 },
+  cloud:  { amp:1.0, speed:1.0, time:0 },
+  sway:   { amp:1.0, speed:1.0, time:0 },
+};
 
 const AmbientMotionEngine = (() => {
   const MASK_W = 800, MASK_H = 450;
+  // 灯り(R)/雲(G)/なびき(B)を1枚のRGBキャンバスにパック
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = MASK_W; maskCanvas.height = MASK_H;
   const maskCtx = maskCanvas.getContext('2d');
+  maskCtx.fillStyle = '#000'; maskCtx.fillRect(0,0,MASK_W,MASK_H);
+  // 明滅は独立ブラシなので別キャンバス（Rチャンネルのみ使用）
+  const glowMaskCanvas = document.createElement('canvas');
+  glowMaskCanvas.width = MASK_W; glowMaskCanvas.height = MASK_H;
+  const glowCtx = glowMaskCanvas.getContext('2d');
+  glowCtx.fillStyle = '#000'; glowCtx.fillRect(0,0,MASK_W,MASK_H);
 
   let glCanvas = null, gl = null, program = null;
-  let imgTex = null, maskTex = null;
+  let imgTex = null, maskTex = null, glowTex = null;
   let texW = 0, texH = 0;
   let maskDirty = true;
   let lastTs = null;
@@ -692,8 +739,7 @@ const AmbientMotionEngine = (() => {
     attribute vec2 aPos;
     varying vec2 vUv;
     void main(){
-      // クリップ空間の上下とテクスチャ(UNPACK_FLIP_Y_WEBGL済み)の上下を一致させる
-      vUv = vec2(aPos.x * 0.5 + 0.5, 0.5 - aPos.y * 0.5);
+      vUv = aPos * 0.5 + 0.5;
       gl_Position = vec4(aPos, 0.0, 1.0);
     }
   `;
@@ -702,8 +748,15 @@ const AmbientMotionEngine = (() => {
     varying vec2 vUv;
     uniform sampler2D uImage;
     uniform sampler2D uMask;
-    uniform float uTime;
-    uniform float uAmp;
+    uniform sampler2D uGlowMask;
+    uniform float uTimeF;
+    uniform float uTimeR;
+    uniform float uTimeG;
+    uniform float uTimeB;
+    uniform float uAmpF;
+    uniform float uAmpR;
+    uniform float uAmpG;
+    uniform float uAmpB;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
     float noise(vec2 p){
       vec2 i = floor(p); vec2 f = fract(p);
@@ -713,15 +766,44 @@ const AmbientMotionEngine = (() => {
     }
     float fbm(vec2 p){
       float v=0.0, amp=0.5;
-      for(int i=0;i<4;i++){ v += amp*noise(p); p *= 2.0; amp *= 0.5; }
+      for(int i=0;i<3;i++){ v += amp*noise(p); p *= 2.03; amp *= 0.5; }
       return v;
     }
     void main(){
-      // uMaskはHTMLCanvasElement由来でuImage(ImageBitmap)とFLIP_Y挙動が異なるため、V軸を反転して補正
-      float m = texture2D(uMask, vec2(vUv.x, 1.0 - vUv.y)).g;
-      float n = fbm(vUv*3.0 + vec2(uTime*0.05, 0.0)) - 0.5;
-      vec2 offset = vec2(n * 0.03 * uAmp * m, 0.0);
-      gl_FragColor = texture2D(uImage, vUv + offset);
+      // ソース種別(ImageBitmap/Canvas)によるUNPACK_FLIP_Y挙動差を避けるため、
+      // FLIP_Yは使わずフラグメントシェーダー内で明示的に反転する
+      vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
+      vec3 m = texture2D(uMask, uv).rgb;       // r=灯り(振り子) g=雲 b=なびき
+      float gm = texture2D(uGlowMask, uv).r;   // 明滅
+
+      vec2 disp = vec2(0.0);
+
+      // 灯り: 振り子(場所ごとに位相をずらす)
+      float phase = noise(uv*4.0) * 6.2831;
+      disp.x += m.r * uAmpR * sin(uTimeR*1.1 + phase) * 0.0055;
+      disp.y += m.r * uAmpR * cos(uTimeR*0.85 + phase*1.3) * 0.0018;
+
+      // 雲: 横方向のうねり
+      disp.x += m.g * uAmpG * sin(uTimeG*0.35 + uv.x*5.0 + fbm(uv*2.0)*3.0) * 0.0075;
+      disp.y += m.g * uAmpG * sin(uTimeG*0.26 + uv.x*3.0) * 0.0022;
+
+      // なびき: 縦に伝わる波
+      disp.x += m.b * uAmpB * sin(uTimeB*0.65 + uv.y*11.0 + fbm(uv*3.0)*2.0) * 0.0050;
+      disp.y += m.b * uAmpB * sin(uTimeB*0.50 + uv.y*7.0) * 0.0015;
+
+      vec2 suv = clamp(uv + disp, 0.001, 0.999);
+      vec3 col = texture2D(uImage, suv).rgb;
+
+      // 明滅: 赤く明るい画素ほど強く色づき、燃えるように橙へ転ぶ
+      float r2 = clamp(col.r - max(col.g, col.b), 0.0, 1.0);
+      float lm = gm * smoothstep(0.08, 0.40, r2) * smoothstep(0.22, 0.60, col.r);
+      float pulse = 0.5 + 0.5*sin(uTimeF*1.35 + noise(suv*5.0)*6.2831);
+      float flicker = 0.90 + 0.10*noise(vec2(uTimeF*2.2, suv.x*20.0));
+      float glow = lm * pulse * flicker * uAmpF;
+      col *= 1.0 + glow * 0.55;
+      col = mix(col, vec3(1.0, 0.52, 0.24), glow * 0.22);
+
+      gl_FragColor = vec4(col, 1.0);
     }
   `;
 
@@ -758,8 +840,15 @@ const AmbientMotionEngine = (() => {
     uniforms = {
       uImage: gl.getUniformLocation(program, 'uImage'),
       uMask: gl.getUniformLocation(program, 'uMask'),
-      uTime: gl.getUniformLocation(program, 'uTime'),
-      uAmp: gl.getUniformLocation(program, 'uAmp'),
+      uGlowMask: gl.getUniformLocation(program, 'uGlowMask'),
+      uTimeF: gl.getUniformLocation(program, 'uTimeF'),
+      uTimeR: gl.getUniformLocation(program, 'uTimeR'),
+      uTimeG: gl.getUniformLocation(program, 'uTimeG'),
+      uTimeB: gl.getUniformLocation(program, 'uTimeB'),
+      uAmpF: gl.getUniformLocation(program, 'uAmpF'),
+      uAmpR: gl.getUniformLocation(program, 'uAmpR'),
+      uAmpG: gl.getUniformLocation(program, 'uAmpG'),
+      uAmpB: gl.getUniformLocation(program, 'uAmpB'),
     };
 
     const quad = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
@@ -772,7 +861,8 @@ const AmbientMotionEngine = (() => {
 
     imgTex = gl.createTexture();
     maskTex = gl.createTexture();
-    [imgTex, maskTex].forEach(tex => {
+    glowTex = gl.createTexture();
+    [imgTex, maskTex, glowTex].forEach(tex => {
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -790,14 +880,14 @@ const AmbientMotionEngine = (() => {
 
   function uploadImage(bitmap){
     gl.bindTexture(gl.TEXTURE_2D, imgTex);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
   }
 
   function uploadMask(){
     gl.bindTexture(gl.TEXTURE_2D, maskTex);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskCanvas);
+    gl.bindTexture(gl.TEXTURE_2D, glowTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, glowMaskCanvas);
     maskDirty = false;
   }
 
@@ -816,11 +906,14 @@ const AmbientMotionEngine = (() => {
     }
     if(maskDirty) uploadMask();
 
-    // Ken Burnsのアイドルループ同様、Play停止中も常時アニメーションを進める
+    // Ken Burnsのアイドルループ同様、Play停止中も常時アニメーションを進める（系統ごとに独立積分）
     if(lastTs === null) lastTs = ts;
     const dt = Math.min(0.05, (ts - lastTs) / 1000);
     lastTs = ts;
-    ambientState.cloudTime += dt * ambientState.cloudSpeed;
+    ambientState.flicker.time += dt * ambientState.flicker.speed;
+    ambientState.lantern.time += dt * ambientState.lantern.speed;
+    ambientState.cloud.time   += dt * ambientState.cloud.speed;
+    ambientState.sway.time    += dt * ambientState.sway.speed;
 
     gl.useProgram(program);
     gl.activeTexture(gl.TEXTURE0);
@@ -829,47 +922,71 @@ const AmbientMotionEngine = (() => {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, maskTex);
     gl.uniform1i(uniforms.uMask, 1);
-    gl.uniform1f(uniforms.uTime, ambientState.cloudTime);
-    gl.uniform1f(uniforms.uAmp, ambientState.cloudAmp);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, glowTex);
+    gl.uniform1i(uniforms.uGlowMask, 2);
+    gl.uniform1f(uniforms.uTimeF, ambientState.flicker.time);
+    gl.uniform1f(uniforms.uTimeR, ambientState.lantern.time);
+    gl.uniform1f(uniforms.uTimeG, ambientState.cloud.time);
+    gl.uniform1f(uniforms.uTimeB, ambientState.sway.time);
+    gl.uniform1f(uniforms.uAmpF, ambientState.flicker.amp);
+    gl.uniform1f(uniforms.uAmpR, ambientState.lantern.amp);
+    gl.uniform1f(uniforms.uAmpG, ambientState.cloud.amp);
+    gl.uniform1f(uniforms.uAmpB, ambientState.sway.amp);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     return glCanvas;
   }
+
+  // ブラシごとの塗り先キャンバスと、そのキャンバス内で使う純色（他チャンネルを汚染しないよう単色のみ）
+  const BRUSH_TARGET = {
+    flicker: { ctx: () => glowCtx, color: '255,255,255' },
+    lantern: { ctx: () => maskCtx, color: '255,0,0' },
+    cloud:   { ctx: () => maskCtx, color: '0,255,0' },
+    sway:    { ctx: () => maskCtx, color: '0,0,255' },
+  };
 
   function paintAt(mx, my, brush, size){
     // mx,my は 0-1 正規化座標（左上原点）
     const x = mx * MASK_W, y = my * MASK_H;
     const r = size;
-    maskCtx.save();
     if(brush === 'eraser'){
-      maskCtx.globalCompositeOperation = 'destination-out';
-      const grd = maskCtx.createRadialGradient(x,y,0,x,y,r);
-      grd.addColorStop(0,'rgba(255,255,255,0.9)');
-      grd.addColorStop(1,'rgba(255,255,255,0)');
-      maskCtx.fillStyle = grd;
-      maskCtx.beginPath(); maskCtx.arc(x,y,r,0,Math.PI*2); maskCtx.fill();
+      // 消しゴムは全チャンネル共通：両キャンバスとも黒で塗りつぶす
+      [maskCtx, glowCtx].forEach(ctx => {
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      });
     } else {
-      // 雲チャンネル → G成分に加算描画
-      maskCtx.globalCompositeOperation = 'lighter';
-      const grd = maskCtx.createRadialGradient(x,y,0,x,y,r);
-      grd.addColorStop(0,'rgba(0,255,0,0.5)');
-      grd.addColorStop(1,'rgba(0,255,0,0)');
-      maskCtx.fillStyle = grd;
-      maskCtx.beginPath(); maskCtx.arc(x,y,r,0,Math.PI*2); maskCtx.fill();
+      const target = BRUSH_TARGET[brush];
+      if(!target) return;
+      const ctx = target.ctx();
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const grd = ctx.createRadialGradient(x,y,0,x,y,r);
+      grd.addColorStop(0, `rgba(${target.color},0.55)`);
+      grd.addColorStop(0.7, `rgba(${target.color},0.30)`);
+      grd.addColorStop(1, `rgba(${target.color},0)`);
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+      ctx.restore();
     }
-    maskCtx.restore();
     markMaskDirty();
     ambientState.hasMask = true;
   }
 
   function clearMask(){
-    maskCtx.clearRect(0,0,MASK_W,MASK_H);
+    maskCtx.fillStyle = '#000'; maskCtx.fillRect(0,0,MASK_W,MASK_H);
+    glowCtx.fillStyle = '#000'; glowCtx.fillRect(0,0,MASK_W,MASK_H);
     markMaskDirty();
     ambientState.hasMask = false;
   }
 
   function getMaskCanvas(){ return maskCanvas; }
+  function getGlowMaskCanvas(){ return glowMaskCanvas; }
 
-  return { render, paintAt, clearMask, getMaskCanvas, MASK_W, MASK_H };
+  return { render, paintAt, clearMask, getMaskCanvas, getGlowMaskCanvas, MASK_W, MASK_H };
 })();
 
 function loadImage(file){
@@ -2235,7 +2352,7 @@ function stopMvRec(){
   setRecBar(0);
 }
 
-// ── Ambient Motion UI（Phase 1: 雲チャンネルのみ）──────────────────
+// ── Ambient Motion UI（明滅・灯り・雲・なびきの4チャンネル）──────────────────
 const ambientPaintCanvas = document.getElementById('ambient-paint-canvas');
 const ambientPaintCtx = ambientPaintCanvas.getContext('2d');
 const ambientEnableCb = document.getElementById('ambient-enable');
@@ -2266,7 +2383,8 @@ function updateAmbientLivePreview(bgSource){
   ambientPaintCtx.drawImage(bgSource, 0, 0, w, h);
   if(ambientState.showMask){
     ambientPaintCtx.globalAlpha = 0.55;
-    ambientPaintCtx.drawImage(AmbientMotionEngine.getMaskCanvas(), 0, 0, w, h);
+    ambientPaintCtx.drawImage(AmbientMotionEngine.getMaskCanvas(), 0, 0, w, h);     // 灯り=赤 雲=緑 なびき=青
+    ambientPaintCtx.drawImage(AmbientMotionEngine.getGlowMaskCanvas(), 0, 0, w, h); // 明滅=白
     ambientPaintCtx.globalAlpha = 1;
   }
 }
@@ -2321,16 +2439,21 @@ document.getElementById('ambient-mask-clear').addEventListener('click', ()=>{
   AmbientMotionEngine.clearMask();
 });
 
-const slAmbientCloudAmp = document.getElementById('sl-ambient-cloud-amp');
-slAmbientCloudAmp.addEventListener('input', function(){
-  ambientState.cloudAmp = parseFloat(this.value);
-  document.getElementById('val-ambient-cloud-amp').textContent = this.value;
-});
-const slAmbientCloudSpeed = document.getElementById('sl-ambient-cloud-speed');
-slAmbientCloudSpeed.addEventListener('input', function(){
-  ambientState.cloudSpeed = parseFloat(this.value);
-  document.getElementById('val-ambient-cloud-speed').textContent = this.value;
-});
+function bindAmbientChannelSlider(channel, param, sliderId, valId){
+  const sl = document.getElementById(sliderId);
+  sl.addEventListener('input', function(){
+    ambientState[channel][param] = parseFloat(this.value);
+    document.getElementById(valId).textContent = this.value;
+  });
+}
+bindAmbientChannelSlider('flicker','amp','sl-ambient-flicker-amp','val-ambient-flicker-amp');
+bindAmbientChannelSlider('flicker','speed','sl-ambient-flicker-speed','val-ambient-flicker-speed');
+bindAmbientChannelSlider('lantern','amp','sl-ambient-lantern-amp','val-ambient-lantern-amp');
+bindAmbientChannelSlider('lantern','speed','sl-ambient-lantern-speed','val-ambient-lantern-speed');
+bindAmbientChannelSlider('cloud','amp','sl-ambient-cloud-amp','val-ambient-cloud-amp');
+bindAmbientChannelSlider('cloud','speed','sl-ambient-cloud-speed','val-ambient-cloud-speed');
+bindAmbientChannelSlider('sway','amp','sl-ambient-sway-amp','val-ambient-sway-amp');
+bindAmbientChannelSlider('sway','speed','sl-ambient-sway-speed','val-ambient-sway-speed');
 
 updateAmbientTabState();
 
