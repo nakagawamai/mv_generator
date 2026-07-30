@@ -685,6 +685,8 @@ const AmbientMotionEngine = (() => {
   let texW = 0, texH = 0;
   let maskDirty = true;
   let lastTs = null;
+  let uploadedBitmap = null;
+  let uniforms = null;
 
   const VERT_SRC = `
     attribute vec2 aPos;
@@ -715,7 +717,8 @@ const AmbientMotionEngine = (() => {
       return v;
     }
     void main(){
-      float m = texture2D(uMask, vUv).g;
+      // uMaskはHTMLCanvasElement由来でuImage(ImageBitmap)とFLIP_Y挙動が異なるため、V軸を反転して補正
+      float m = texture2D(uMask, vec2(vUv.x, 1.0 - vUv.y)).g;
       float n = fbm(vUv*3.0 + vec2(uTime*0.05, 0.0)) - 0.5;
       vec2 offset = vec2(n * 0.03 * uAmp * m, 0.0);
       gl_FragColor = texture2D(uImage, vUv + offset);
@@ -752,6 +755,12 @@ const AmbientMotionEngine = (() => {
       return false;
     }
     gl.useProgram(program);
+    uniforms = {
+      uImage: gl.getUniformLocation(program, 'uImage'),
+      uMask: gl.getUniformLocation(program, 'uMask'),
+      uTime: gl.getUniformLocation(program, 'uTime'),
+      uAmp: gl.getUniformLocation(program, 'uAmp'),
+    };
 
     const quad = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
     const buf = gl.createBuffer();
@@ -800,7 +809,11 @@ const AmbientMotionEngine = (() => {
     const w = bitmap.width, h = bitmap.height;
     ensureSize(w, h);
     gl.viewport(0, 0, w, h);
-    uploadImage(bitmap);
+    // 画像自体は変化しないので、新しいビットマップの時だけ再アップロード（毎フレームの再転送を回避）
+    if(uploadedBitmap !== bitmap){
+      uploadImage(bitmap);
+      uploadedBitmap = bitmap;
+    }
     if(maskDirty) uploadMask();
 
     // Ken Burnsのアイドルループ同様、Play停止中も常時アニメーションを進める
@@ -812,12 +825,12 @@ const AmbientMotionEngine = (() => {
     gl.useProgram(program);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, imgTex);
-    gl.uniform1i(gl.getUniformLocation(program, 'uImage'), 0);
+    gl.uniform1i(uniforms.uImage, 0);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, maskTex);
-    gl.uniform1i(gl.getUniformLocation(program, 'uMask'), 1);
-    gl.uniform1f(gl.getUniformLocation(program, 'uTime'), ambientState.cloudTime);
-    gl.uniform1f(gl.getUniformLocation(program, 'uAmp'), ambientState.cloudAmp);
+    gl.uniform1i(uniforms.uMask, 1);
+    gl.uniform1f(uniforms.uTime, ambientState.cloudTime);
+    gl.uniform1f(uniforms.uAmp, ambientState.cloudAmp);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     return glCanvas;
   }
