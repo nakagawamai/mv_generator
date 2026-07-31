@@ -1544,14 +1544,36 @@ const lrcState = { size:100, pos:80, posX:50, color:'#ffffff', shadow:'#000000',
 let lyricChangeTime = 0;   // performance.now() 時刻（ライン切り替わり検出用）
 let lyricPrevRaw = '';     // 直前の生テキスト（変更検出用）
 
+// スライドインの実効タイミング（行の表示時間が短い場合は自動で圧縮される）
+let lyricSlideinPerCharDelay = 3.5;
+let lyricSlideinDur = 5.0;
+function computeSlideinTiming(charCount, availableTime){
+  let perCharDelay = 3.5 / lrcState.effectSpeed;
+  let dur = 5.0 / lrcState.effectSpeed;
+  if(charCount > 1 && isFinite(availableTime)){
+    const totalSpan = perCharDelay * (charCount - 1) + dur;
+    const budget = availableTime * 0.85; // 次の行に切り替わる前に少し余裕を残す
+    if(totalSpan > budget && budget > 0.05){
+      const scale = budget / totalSpan;
+      perCharDelay *= scale;
+      dur *= scale;
+    }
+  }
+  return { perCharDelay, dur };
+}
+
 // ── 歌詞オーバーレイ（RAFで常時更新）──
 const lyricLine = document.getElementById('lyric-line');
 const lyricOverlay = document.getElementById('lyric-overlay');
 ;(function lyricLoop(){
   if(audioEl && lrcLines.length){
     const t = audioEl.currentTime;
-    let cur = '';
-    for(const l of lrcLines){ if(l.time <= t) cur = l.text; else break; }
+    let idx = -1;
+    for(let i=0;i<lrcLines.length;i++){ if(lrcLines[i].time <= t) idx = i; else break; }
+    const cur = idx >= 0 ? lrcLines[idx].text : '';
+    const availableTime = (idx >= 0 && idx+1 < lrcLines.length)
+      ? Math.max(0, lrcLines[idx+1].time - lrcLines[idx].time)
+      : Infinity;
 
     // ライン切り替わり検出
     if(cur !== lyricPrevRaw){
@@ -1569,15 +1591,16 @@ const lyricOverlay = document.getElementById('lyric-overlay');
       // CSSアニメーションに任せる（毎フレーム再構築するとアニメがリセットされてしまうため）
       if(lrcState.effect === 'slidein' && cur){
         const chars = [...cur];
-        const perCharDelay = 3.5 / lrcState.effectSpeed;
-        const dur = 5.0 / lrcState.effectSpeed;
+        const timing = computeSlideinTiming(chars.length, availableTime);
+        lyricSlideinPerCharDelay = timing.perCharDelay;
+        lyricSlideinDur = timing.dur;
         lyricLine.textContent = '';
         chars.forEach((c,i)=>{
           const span = document.createElement('span');
           span.className = 'lyric-char-slidein';
           span.textContent = c === ' ' ? ' ' : c;
-          span.style.animationDelay = (i*perCharDelay).toFixed(3)+'s';
-          span.style.animationDuration = dur.toFixed(3)+'s';
+          span.style.animationDelay = (i*lyricSlideinPerCharDelay).toFixed(3)+'s';
+          span.style.animationDuration = lyricSlideinDur.toFixed(3)+'s';
           lyricLine.appendChild(span);
         });
       }
@@ -1714,8 +1737,9 @@ function drawLyricOnCanvas(ctx, W, H, txt, now){
     const widths = chars.map(c => ctx.measureText(c).width);
     const totalW = widths.reduce((a,b)=>a+b, 0);
     const elapsed = (now - lyricChangeTime) / 1000;
-    const perCharDelay = 3.5 / lrcState.effectSpeed;
-    const dur = 5.0 / lrcState.effectSpeed;
+    // lyricLoop()が行の表示時間に応じて計算した実効タイミングを使う（DOMプレビューと一致させる）
+    const perCharDelay = lyricSlideinPerCharDelay;
+    const dur = lyricSlideinDur;
     let x = drawAtX - totalW/2;
     for(let i=0; i<chars.length; i++){
       const w = widths[i];
