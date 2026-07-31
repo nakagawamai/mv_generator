@@ -15,7 +15,7 @@ window._mp4Supported = typeof MediaRecorder !== 'undefined' && MediaRecorder.isT
   --bg:#0a0a0c; --panel:#13131a; --border:rgba(255,255,255,0.08);
   --accent:#c8a96e; --text:rgba(255,255,255,0.85); --muted:rgba(255,255,255,0.4);
 }
-html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:Georgia,serif; }
+html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:Georgia,serif; overscroll-behavior-x:none; }
 
 /* ══ 共通レイアウト：左プレビュー＋右パネル ══ */
 #app {
@@ -652,6 +652,19 @@ input[type=range]::-webkit-slider-thumb {
 </div>
 
 <script>
+// ── スワイプ誤操作による画面リセット対策 ──────────────────
+// エッジスワイプ（左右）で「戻る」が発生してもページ離脱しないよう、
+// 履歴エントリを常に1つ積んでおき、popstate発生時に即座に積み直して吸収する。
+history.pushState(null, '', location.href);
+window.addEventListener('popstate', () => {
+  history.pushState(null, '', location.href);
+});
+// 上記をすり抜けて実際に離脱しようとした場合の最終防波堤
+window.addEventListener('beforeunload', (e) => {
+  e.preventDefault();
+  e.returnValue = '';
+});
+
 function accToggle(id){ document.getElementById(id).classList.toggle('open'); }
 
 function switchTab(tabId){
