@@ -199,6 +199,11 @@ input[type=range]::-webkit-slider-thumb {
   100% { transform:scale(1); opacity:1; }
 }
 .lyric-burst { animation:lyric-burst-in var(--burst-dur,0.45s) cubic-bezier(0.34,1.56,0.64,1) both; }
+@keyframes lyric-slidein {
+  0%   { transform:translateX(0.6em); opacity:0; }
+  100% { transform:translateX(0); opacity:1; }
+}
+.lyric-char-slidein { display:inline-block; animation:lyric-slidein 0.5s ease-out both; }
 
 /* LRCエディター モーダル */
 #lrc-modal { display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.88); overflow-y:auto; }
@@ -341,6 +346,7 @@ input[type=range]::-webkit-slider-thumb {
             <option value="none">None</option>
             <option value="typewriter">Typewriter</option>
             <option value="burst">Burst</option>
+            <option value="slidein">Slide In（右からふわっと）</option>
           </select>
           <div id="lyric-effect-speed-row" style="display:none;">
             <div class="av-sl-label"><span id="lyric-effect-speed-label">Speed</span><span id="val-lyric-effect-speed">10</span></div>
@@ -1559,6 +1565,22 @@ const lyricOverlay = document.getElementById('lyric-overlay');
       } else {
         lyricLine.classList.remove('lyric-burst');
       }
+      // スライドイン：1文字ずつ右からふわっと。切り替わり時にのみspanを構築し、
+      // CSSアニメーションに任せる（毎フレーム再構築するとアニメがリセットされてしまうため）
+      if(lrcState.effect === 'slidein' && cur){
+        const chars = [...cur];
+        const perCharDelay = 3.5 / lrcState.effectSpeed;
+        const dur = 5.0 / lrcState.effectSpeed;
+        lyricLine.textContent = '';
+        chars.forEach((c,i)=>{
+          const span = document.createElement('span');
+          span.className = 'lyric-char-slidein';
+          span.textContent = c === ' ' ? ' ' : c;
+          span.style.animationDelay = (i*perCharDelay).toFixed(3)+'s';
+          span.style.animationDuration = dur.toFixed(3)+'s';
+          lyricLine.appendChild(span);
+        });
+      }
     }
 
     // タイプライター：表示文字数を時間で制御
@@ -1567,6 +1589,8 @@ const lyricOverlay = document.getElementById('lyric-overlay');
       const chars = [...cur];
       const visible = Math.min(chars.length, Math.floor(elapsed * lrcState.effectSpeed * 3));
       lyricLine.textContent = chars.slice(0, visible).join('');
+    } else if(lrcState.effect === 'slidein' && cur){
+      // spanは切り替わり時に構築済み。ここでは何もしない
     } else {
       lyricLine.textContent = cur;
     }
@@ -1618,7 +1642,9 @@ document.getElementById('lyric-effect').addEventListener('change', function(){
   lrcState.effect = this.value;
   const row = document.getElementById('lyric-effect-speed-row');
   row.style.display = this.value === 'none' ? 'none' : '';
-  document.getElementById('lyric-effect-speed-label').textContent = this.value === 'typewriter' ? 'Speed (chars/s×3)' : 'Intensity';
+  document.getElementById('lyric-effect-speed-label').textContent =
+    this.value === 'typewriter' ? 'Speed (chars/s×3)' :
+    this.value === 'slidein' ? 'Speed' : 'Intensity';
   lyricPrevRaw = ''; // 強制リセットでエフェクト再トリガー
 });
 document.getElementById('sl-lyric-effect-speed').addEventListener('input', function(){
@@ -1681,6 +1707,34 @@ function drawLyricOnCanvas(ctx, W, H, txt, now){
       ctx.fillStyle = lrcState.color;
       ctx.fillText(chars[i], 0, 0);
       ctx.restore();
+    }
+  } else if(lrcState.effect === 'slidein'){
+    // スライドイン：1文字ずつ右からふわっとフェードインしながら定位置へ
+    const chars = [...txt];
+    const widths = chars.map(c => ctx.measureText(c).width);
+    const totalW = widths.reduce((a,b)=>a+b, 0);
+    const elapsed = (now - lyricChangeTime) / 1000;
+    const perCharDelay = 3.5 / lrcState.effectSpeed;
+    const dur = 5.0 / lrcState.effectSpeed;
+    let x = drawAtX - totalW/2;
+    for(let i=0; i<chars.length; i++){
+      const w = widths[i];
+      const charCenterX = x + w/2;
+      const t = Math.min(1, Math.max(0, (elapsed - i*perCharDelay) / dur));
+      const eased = 1 - Math.pow(1-t, 3); // easeOutCubic
+      const slideOffset = (1-eased) * fs * 0.6;
+      ctx.save();
+      ctx.globalAlpha = eased;
+      if(lrcState.strokeWidth > 0){
+        ctx.lineWidth = lrcState.strokeWidth*2; ctx.strokeStyle = lrcState.strokeColor; ctx.lineJoin='round';
+        const sc=ctx.shadowColor; ctx.shadowColor='transparent';
+        ctx.strokeText(chars[i], charCenterX + slideOffset, drawAtY);
+        ctx.shadowColor=sc;
+      }
+      ctx.fillStyle = lrcState.color;
+      ctx.fillText(chars[i], charCenterX + slideOffset, drawAtY);
+      ctx.restore();
+      x += w;
     }
   } else {
     if(lrcState.strokeWidth > 0){
