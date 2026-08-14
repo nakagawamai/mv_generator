@@ -46,6 +46,7 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 #preview-wrap { position:relative; background:#2e2a27; overflow:hidden; display:flex; align-items:center; justify-content:center; }
 #main-canvas, #fx-canvas { position:absolute; top:0; left:0; }
 #lyric-overlay { position:absolute; left:0; right:0; text-align:center; pointer-events:none; z-index:15; }
+#fade-overlay { position:absolute; inset:0; background:#000; opacity:0; pointer-events:none; z-index:17; }
 @media (max-width:600px) {
   #preview-wrap { position:relative; }
 }
@@ -137,6 +138,14 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 .sl-header { font-size:12px; color:var(--muted); margin-bottom:4px; }
 .sl-header .sl-val { float:right; color:rgba(255,255,255,0.55); }
 .sl-header::after { content:''; display:table; clear:both; }
+
+/* スライドショー画像リスト */
+.slideshow-row { display:flex; align-items:center; gap:6px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+.slideshow-row .slideshow-thumb { width:32px; height:32px; object-fit:cover; border-radius:3px; flex-shrink:0; }
+.slideshow-row .slideshow-name { flex:1; font-size:11px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.slideshow-row input[type=number] { width:56px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text); border-radius:3px; padding:4px; font-size:11px; }
+.slideshow-row button { flex-shrink:0; width:22px; height:22px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); color:var(--muted); border-radius:3px; cursor:pointer; font-size:11px; line-height:1; }
+.slideshow-row button:hover { border-color:var(--accent); color:var(--accent); }
 input[type=range] {
   -webkit-appearance:none; display:block; width:100%; height:4px;
   background:rgba(255,255,255,0.1); border-radius:2px; outline:none;
@@ -252,10 +261,11 @@ input[type=range]::-webkit-slider-thumb {
     <div id="drop-zone">
       <div id="drop-zone-inner">
         <span style="font-size:13px;line-height:1.6;">画像、またはビデオを<br>アップロードしてください。</span>
-        <input type="file" id="file-input" accept="image/*" style="display:none">
+        <input type="file" id="file-input" accept="image/*" multiple style="display:none">
       </div>
     </div>
     <div id="lyric-overlay"><span id="lyric-line"></span></div>
+    <div id="fade-overlay"></div>
   </div>
 
   <!-- サイドパネル -->
@@ -294,14 +304,35 @@ input[type=range]::-webkit-slider-thumb {
           <button class="canvas-size-btn" data-w="1080" data-h="1920" onclick="setCanvasSize(1080,1920,this)">9:16</button>
           <button class="canvas-size-btn" data-w="1080" data-h="1080" onclick="setCanvasSize(1080,1080,this)">1:1</button>
         </div>
-        <div class="sl-block">
-          <div class="sl-header">Image X position<span class="sl-val" id="val-bg-pos-x">0%</span></div>
-          <input type="range" id="sl-bg-pos-x" min="-100" max="100" value="0" step="1">
+        <div id="single-image-controls">
+          <div class="sl-block">
+            <div class="sl-header">Image X position<span class="sl-val" id="val-bg-pos-x">0%</span></div>
+            <input type="range" id="sl-bg-pos-x" min="-100" max="100" value="0" step="1">
+          </div>
+          <div class="sl-block" style="margin-bottom:10px;">
+            <div class="sl-header">Image Y position<span class="sl-val" id="val-bg-pos-y">0%</span></div>
+            <input type="range" id="sl-bg-pos-y" min="-100" max="100" value="0" step="1">
+          </div>
         </div>
-        <div class="sl-block" style="margin-bottom:10px;">
-          <div class="sl-header">Image Y position<span class="sl-val" id="val-bg-pos-y">0%</span></div>
-          <input type="range" id="sl-bg-pos-y" min="-100" max="100" value="0" step="1">
+
+        <!-- 複数画像スライドショー：画像を2枚以上選んだ時のみ表示 -->
+        <div id="slideshow-section" style="display:none;margin-bottom:10px;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">スライドショー（画像 <span id="slideshow-count">0</span>枚・自動アニメーション）</div>
+          <div id="slideshow-list"></div>
+          <div class="sl-block">
+            <div class="sl-header">クロスフェード<span class="sl-val" id="val-slideshow-crossfade">1.5s</span></div>
+            <input type="range" id="sl-slideshow-crossfade" min="0" max="4" value="1.5" step="0.1">
+          </div>
+          <div class="sl-block">
+            <div class="sl-header">冒頭フェードイン<span class="sl-val" id="val-slideshow-fadein">1.5s</span></div>
+            <input type="range" id="sl-slideshow-fadein" min="0" max="5" value="1.5" step="0.1">
+          </div>
+          <div class="sl-block" style="margin-bottom:10px;">
+            <div class="sl-header">終了フェードアウト<span class="sl-val" id="val-slideshow-fadeout">3.0s</span></div>
+            <input type="range" id="sl-slideshow-fadeout" min="0" max="8" value="3.0" step="0.1">
+          </div>
         </div>
+
         <div class="av-row">
           <button class="av-btn" id="open-editor-btn" style="flex:1;background:rgba(80,60,120,0.85);">Lyric Editor</button>
           <button class="av-btn" id="lrc-load-btn" style="flex:1;background:rgba(40,60,80,0.85);">Load LRC</button>
@@ -531,6 +562,7 @@ input[type=range]::-webkit-slider-thumb {
         </div>
         <div id="ambient-video-warning" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;">動画モードでは使用できません（静止画のみ対応）。</div>
         <div id="ambient-noimg-warning" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;">先に画像をアップロードしてください。</div>
+        <div id="ambient-slideshow-warning" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;">複数画像モードでは使用できません（画像が1枚の時のみ有効です。切り替わり時は自動アニメーションが適用されます）。</div>
 
         <div id="ambient-controls">
           <div class="av-row" style="margin-bottom:6px;">
@@ -723,6 +755,67 @@ function setConvertStatus(t){ convertStatusEl.textContent=t; }
 // 背景画像
 const bgImg = new Image();
 let bgImageBitmap = null;
+
+// ── 複数画像スライドショー（画像を2枚以上選んだ時のみ有効）──────────────
+let slideshowImages = []; // [{bitmap, name, startTime}]
+let slideshowTimesEdited = false; // 手動で時間を調整したら自動再配分をやめる
+const slideshowState = { crossfade:1.5, fadeIn:1.5, fadeOut:3.0 };
+function isSlideshowActive(){ return slideshowImages.length > 1; }
+
+function slideshowTotalDuration(){
+  if(audioEl && isFinite(audioEl.duration) && audioEl.duration > 0) return audioEl.duration;
+  if(!slideshowImages.length) return 0;
+  return slideshowImages[slideshowImages.length-1].startTime + 5;
+}
+
+function distributeSlideshowTimes(){
+  if(!slideshowImages.length) return;
+  const duration = slideshowTotalDuration() || slideshowImages.length * 5;
+  slideshowImages.forEach((img,i)=>{ img.startTime = duration * i / slideshowImages.length; });
+}
+
+function normalizeSlideshowTimes(){
+  if(!slideshowImages.length) return;
+  const duration = slideshowTotalDuration() || 9999;
+  slideshowImages[0].startTime = 0;
+  for(let i=1;i<slideshowImages.length;i++){
+    slideshowImages[i].startTime = Math.min(Math.max(slideshowImages[i].startTime, slideshowImages[i-1].startTime + 0.1), duration);
+  }
+}
+
+async function loadSlideshowImages(files){
+  // 複数画像モードへ切り替え：既存の単一画像・動画はクリア
+  bgImg.src = ''; bgImageBitmap = null;
+  AmbientMotionEngine.clearMask();
+  if(bgVideoEl){ bgVideoEl.pause(); bgVideoEl.src=''; bgVideoEl=null; }
+  isVideoMode = false;
+  dropZone.classList.add('hidden');
+
+  // File(Blob)から直接ビットマップ化し、全ファイルを並行して読み込む
+  const loaded = await Promise.all(files.map(file =>
+    createImageBitmap(file).then(bitmap => ({ bitmap, name:file.name, startTime:0 }))
+  ));
+  slideshowImages = loaded;
+  slideshowTimesEdited = false;
+  distributeSlideshowTimes();
+  updateAmbientTabState();
+  updateSlideshowUI();
+}
+
+function clearSlideshow(){
+  slideshowImages = [];
+  updateSlideshowUI();
+}
+
+// files.length<=1なら単一画像フロー、2枚以上ならスライドショーへ
+function loadImages(files){
+  if(files.length <= 1){
+    clearSlideshow();
+    if(files[0]) loadImage(files[0]);
+    return Promise.resolve();
+  }
+  return loadSlideshowImages(files);
+}
 
 // ── Ambient Motion（Phase 1: 雲チャンネルのみ）──────────────────
 const ambientState = {
@@ -1032,10 +1125,10 @@ dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.a
 dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop',e=>{
   e.preventDefault();dropZone.classList.remove('dragover');
-  const f=e.dataTransfer.files[0];
-  if(f&&f.type.startsWith('image/'))loadImage(f);
+  const files=[...e.dataTransfer.files].filter(f=>f.type.startsWith('image/'));
+  if(files.length) loadImages(files);
 });
-fileInput.addEventListener('change',e=>{ if(e.target.files[0])loadImage(e.target.files[0]); });
+fileInput.addEventListener('change',e=>{ if(e.target.files.length) loadImages([...e.target.files]); });
 document.getElementById('change-img-btn').addEventListener('click',()=>fileInput.click());
 
 // トグル
@@ -1092,6 +1185,76 @@ function getKBTransform(p){
   const tx = kbPan * Math.sin(a) * 2.0;
   const ty = kbPan * Math.sin(2 * a) * 0.9;
   return {scale, tx, ty};
+}
+
+// ── スライドショー：画像ごとに8パターンのケン・バーンズを自動で巡回 ──────
+function getSlideshowTransform(index, progress){
+  const movementType = index % 8;
+  let zoom = 1.12, horizontal = 0.5, vertical = 0.5;
+  if(movementType === 0) zoom = 1 + 0.12*progress;
+  if(movementType === 1) horizontal = progress;
+  if(movementType === 2) horizontal = 1 - progress;
+  if(movementType === 3) zoom = 1.14 - 0.12*progress;
+  if(movementType === 4){ zoom = 1.13; horizontal = progress; vertical = 0.35; }
+  if(movementType === 5){ zoom = 1.13; horizontal = 1 - progress; vertical = 0.65; }
+  if(movementType === 6) zoom = 1 + 0.14*progress;
+  if(movementType === 7) zoom = 1.15 - 0.12*progress;
+  return { zoom, horizontal, vertical };
+}
+
+// cover方式（レターボックスなしで画面を常に埋める）で1枚描画
+function drawSlideshowImage(ctx, W, H, bitmap, index, progress, alpha){
+  const { zoom, horizontal, vertical } = getSlideshowTransform(index, progress);
+  const coverScale = Math.max(W/bitmap.width, H/bitmap.height) * zoom;
+  const dw = bitmap.width*coverScale, dh = bitmap.height*coverScale;
+  const x = -(dw - W) * horizontal, y = -(dh - H) * vertical;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(bitmap, x, y, dw, dh);
+  ctx.restore();
+}
+
+function findSlideshowIndex(time){
+  let idx = 0;
+  for(let i=0;i<slideshowImages.length;i++){ if(time >= slideshowImages[i].startTime) idx = i; }
+  return idx;
+}
+
+// 現在のタイムラインに応じて画像を描画し、クロスフェードも処理する。戻り値は暗転の強さ(0-1)
+function drawSlideshow(ctx, W, H){
+  const time = audioEl ? (audioEl.currentTime||0) : 0;
+  const idx = findSlideshowIndex(time);
+  const image = slideshowImages[idx];
+  const nextImage = slideshowImages[idx+1];
+  const totalDuration = slideshowTotalDuration();
+  const nextStart = nextImage ? nextImage.startTime : totalDuration;
+  const interval = Math.max(0.1, nextStart - image.startTime);
+  const progress = Math.min(1, Math.max(0, (time - image.startTime) / interval));
+  drawSlideshowImage(ctx, W, H, image.bitmap, idx, progress, 1);
+
+  const fade = slideshowState.crossfade;
+  const fadeStart = nextStart - fade/2;
+  if(nextImage && fade > 0 && time >= fadeStart){
+    const fadeAlpha = Math.min(1, Math.max(0, (time - fadeStart) / fade));
+    drawSlideshowImage(ctx, W, H, nextImage.bitmap, idx+1, 0, fadeAlpha);
+  }
+  return computeSlideshowDarkness(time, totalDuration);
+}
+
+function computeSlideshowDarkness(time, totalDuration){
+  let darkness = 0;
+  if(slideshowState.fadeIn > 0 && time < slideshowState.fadeIn){
+    darkness = Math.max(darkness, 1 - time/slideshowState.fadeIn);
+  }
+  if(slideshowState.fadeOut > 0 && totalDuration && time > totalDuration - slideshowState.fadeOut){
+    darkness = Math.max(darkness, (time - (totalDuration - slideshowState.fadeOut)) / slideshowState.fadeOut);
+  }
+  return Math.min(1, Math.max(0, darkness));
+}
+
+function applyFadeOverlay(darkness){
+  const el = document.getElementById('fade-overlay');
+  if(el) el.style.opacity = darkness;
 }
 
 // Canvas resize
@@ -1216,6 +1379,11 @@ function drawMain(ts){
       mctx.drawImage(bgVideoEl,dx,dy,dw,dh);
       mctx.restore();
     }
+    applyFadeOverlay(0);
+  } else if(isSlideshowActive()){
+    // 複数画像：Ambient Motionは無効、自動のズーム/パン+クロスフェード+暗転のみ
+    const darkness = drawSlideshow(mctx, W, H);
+    applyFadeOverlay(darkness);
   } else if(bgImageBitmap){
     const iw=bgImageBitmap.width, ih=bgImageBitmap.height;
     const sc = isPortrait
@@ -1233,6 +1401,9 @@ function drawMain(ts){
     mctx.drawImage(bgSource,dx,dy,dw,dh);
     mctx.restore();
     updateAmbientLivePreview(bgSource);
+    applyFadeOverlay(0);
+  } else {
+    applyFadeOverlay(0);
   }
   if(state.glow){
     glowPhase+=0.008;
@@ -1835,8 +2006,9 @@ function loadMediaFile(file){
     bgVideoEl.addEventListener('loadedmetadata', () => {
       bgVideoEl.currentTime = 1e-5;
     }, {once: true});
-    // 画像がロードされていた場合はクリア（後優先）
+    // 画像・スライドショーがロードされていた場合はクリア（後優先）
     bgImg.src = ''; bgImageBitmap = null;
+    clearSlideshow();
     dropZone.classList.add('hidden');
     document.getElementById('av-mode-label').textContent = 'Video mode — Ken Burns disabled';
     document.getElementById('av-mode-label').style.display = 'block';
@@ -1849,6 +2021,13 @@ function loadMediaFile(file){
     document.getElementById('av-mode-label').style.display = 'none';
     const toggle = document.getElementById('mv-audio-toggle');
     toggle.disabled = false;
+    // スライドショーが読み込まれていて、まだ手動調整されていなければ実際の音声の長さで再配分
+    audioEl.addEventListener('loadedmetadata', ()=>{
+      if(isSlideshowActive() && !slideshowTimesEdited){
+        distributeSlideshowTimes();
+        updateSlideshowUI();
+      }
+    }, {once:true});
   }
 
   audioEl.addEventListener('ended', ()=>{ document.getElementById('play-btn').textContent='Play'; });
@@ -2205,7 +2384,7 @@ mvRecBtn.addEventListener('click', ()=>{
 
 function startMvRec(){
   if(!audioEl){ alert('Please load an audio or video file first'); return; }
-  if(!isVideoMode && !bgImageBitmap){ alert('Please load an image first'); return; }
+  if(!isVideoMode && !bgImageBitmap && !isSlideshowActive()){ alert('Please load an image first'); return; }
 
   // 先頭に戻してから3秒カウントダウン
   audioEl.currentTime = 0;
@@ -2274,6 +2453,15 @@ function _startRecordingWithEl(recAudioEl){
     octx.drawImage(mainCanvas,0,0);
     octx.drawImage(fxCanvas,0,0);
     drawLyricOnCanvas(octx, W, H, document.getElementById('lyric-line').textContent, now||performance.now());
+    // スライドショーの冒頭/終了の暗転は歌詞テロップの上にも重ねる（プレビューと同じ見え方にする）
+    if(isSlideshowActive()){
+      const time = audioEl ? (audioEl.currentTime||0) : 0;
+      const darkness = computeSlideshowDarkness(time, slideshowTotalDuration());
+      if(darkness > 0){
+        octx.fillStyle = `rgba(0,0,0,${darkness})`;
+        octx.fillRect(0,0,W,H);
+      }
+    }
     compRaf = requestAnimationFrame(compose);
   }
   compose();
@@ -2450,18 +2638,21 @@ const ambientEnableCb = document.getElementById('ambient-enable');
 const ambientControls = document.getElementById('ambient-controls');
 const ambientVideoWarning = document.getElementById('ambient-video-warning');
 const ambientNoimgWarning = document.getElementById('ambient-noimg-warning');
+const ambientSlideshowWarning = document.getElementById('ambient-slideshow-warning');
 
 function updateAmbientTabState(){
   const hasImage = !!bgImageBitmap;
+  const slideshow = isSlideshowActive();
   ambientVideoWarning.style.display = isVideoMode ? 'block' : 'none';
-  ambientNoimgWarning.style.display = (!isVideoMode && !hasImage) ? 'block' : 'none';
-  ambientControls.style.display = (!isVideoMode && hasImage) ? 'block' : 'none';
+  ambientSlideshowWarning.style.display = (!isVideoMode && slideshow) ? 'block' : 'none';
+  ambientNoimgWarning.style.display = (!isVideoMode && !slideshow && !hasImage) ? 'block' : 'none';
+  ambientControls.style.display = (!isVideoMode && !slideshow && hasImage) ? 'block' : 'none';
   updateAmbientPaintVisibility();
 }
 
 function updateAmbientPaintVisibility(){
   const active = document.getElementById('tab-ambient').classList.contains('active');
-  const usable = active && !isVideoMode && !!bgImageBitmap;
+  const usable = active && !isVideoMode && !isSlideshowActive() && !!bgImageBitmap;
   ambientPaintCanvas.classList.toggle('active', usable);
 }
 
@@ -2547,6 +2738,103 @@ bindAmbientChannelSlider('sway','amp','sl-ambient-sway-amp','val-ambient-sway-am
 bindAmbientChannelSlider('sway','speed','sl-ambient-sway-speed','val-ambient-sway-speed');
 
 updateAmbientTabState();
+
+// ── スライドショーUI（画像を2枚以上選んだ時のみ表示）──────────────────
+const slideshowSection = document.getElementById('slideshow-section');
+const singleImageControls = document.getElementById('single-image-controls');
+const slideshowList = document.getElementById('slideshow-list');
+
+function updateSlideshowUI(){
+  const active = isSlideshowActive();
+  slideshowSection.style.display = active ? 'block' : 'none';
+  singleImageControls.style.display = active ? 'none' : 'block';
+  document.getElementById('slideshow-count').textContent = slideshowImages.length;
+  renderSlideshowList();
+}
+
+function renderSlideshowList(){
+  slideshowList.innerHTML = '';
+  slideshowImages.forEach((img, i)=>{
+    const row = document.createElement('div');
+    row.className = 'slideshow-row';
+    const thumb = document.createElement('img');
+    thumb.className = 'slideshow-thumb';
+    // ImageBitmapは直接<img src>にできないため、サムネイル用canvasを都度生成
+    const tc = document.createElement('canvas'); tc.width=32; tc.height=32;
+    tc.getContext('2d').drawImage(img.bitmap, 0, 0, 32, 32);
+    thumb.src = tc.toDataURL();
+
+    const name = document.createElement('span');
+    name.className = 'slideshow-name';
+    name.textContent = `${i+1}. ${img.name}`;
+    name.title = img.name;
+
+    const timeInput = document.createElement('input');
+    timeInput.type = 'number'; timeInput.min = '0'; timeInput.step = '0.1';
+    timeInput.value = img.startTime.toFixed(1);
+    timeInput.disabled = (i === 0);
+    timeInput.addEventListener('change', ()=>{
+      img.startTime = parseFloat(timeInput.value) || 0;
+      slideshowTimesEdited = true;
+      normalizeSlideshowTimes();
+      renderSlideshowList();
+    });
+
+    const upBtn = document.createElement('button'); upBtn.textContent = '↑';
+    upBtn.disabled = (i === 0);
+    upBtn.addEventListener('click', ()=> moveSlideshowImage(i, -1));
+
+    const downBtn = document.createElement('button'); downBtn.textContent = '↓';
+    downBtn.disabled = (i === slideshowImages.length-1);
+    downBtn.addEventListener('click', ()=> moveSlideshowImage(i, 1));
+
+    const removeBtn = document.createElement('button'); removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', ()=> removeSlideshowImage(i));
+
+    row.append(thumb, name, timeInput, document.createTextNode('秒'), upBtn, downBtn, removeBtn);
+    slideshowList.appendChild(row);
+  });
+}
+
+function moveSlideshowImage(index, amount){
+  const target = index + amount;
+  if(target < 0 || target >= slideshowImages.length) return;
+  slideshowTimesEdited = true;
+  const times = slideshowImages.map(img=>img.startTime).sort((a,b)=>a-b);
+  [slideshowImages[index], slideshowImages[target]] = [slideshowImages[target], slideshowImages[index]];
+  slideshowImages.forEach((img,i)=>{ img.startTime = times[i]; });
+  updateSlideshowUI();
+}
+
+function removeSlideshowImage(index){
+  slideshowImages.splice(index, 1);
+  if(slideshowImages.length <= 1){
+    // 1枚以下になったら単一画像モードへ戻す
+    const remaining = slideshowImages[0];
+    slideshowImages = [];
+    if(remaining){
+      bgImageBitmap = remaining.bitmap;
+      AmbientMotionEngine.clearMask();
+    }
+    updateAmbientTabState();
+  } else {
+    normalizeSlideshowTimes();
+  }
+  updateSlideshowUI();
+}
+
+document.getElementById('sl-slideshow-crossfade').addEventListener('input', function(){
+  slideshowState.crossfade = parseFloat(this.value);
+  document.getElementById('val-slideshow-crossfade').textContent = this.value + 's';
+});
+document.getElementById('sl-slideshow-fadein').addEventListener('input', function(){
+  slideshowState.fadeIn = parseFloat(this.value);
+  document.getElementById('val-slideshow-fadein').textContent = this.value + 's';
+});
+document.getElementById('sl-slideshow-fadeout').addEventListener('input', function(){
+  slideshowState.fadeOut = parseFloat(this.value);
+  document.getElementById('val-slideshow-fadeout').textContent = this.value + 's';
+});
 
 </script>
 </body>
