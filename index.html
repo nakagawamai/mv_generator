@@ -284,7 +284,11 @@ input[type=range]::-webkit-slider-thumb {
 
       <!-- 音声 & 歌詞 -->
       <div class="av-section">
-        <button id="change-img-btn" class="img-btn-style">Change image</button>
+        <div class="av-row" style="margin-bottom:8px;">
+          <button id="change-img-btn" class="img-btn-style" style="flex:2;margin-bottom:0;">Change image</button>
+          <button id="add-img-btn" class="img-btn-style" style="flex:1;margin-bottom:0;">＋ 追加</button>
+          <input type="file" id="add-image-input" accept="image/*" multiple style="display:none">
+        </div>
         <div class="av-drop" id="audio-drop">
           <span id="av-drop-label">Drop audio or video, or click</span>
           <input type="file" id="audio-input" accept="audio/*,video/*" style="display:none">
@@ -817,6 +821,38 @@ function loadImages(files){
   return loadSlideshowImages(files);
 }
 
+// 既存の画像（単一・スライドショーどちらでも）に後から追加する
+async function appendSlideshowImages(files){
+  if(!files.length) return;
+  const newItems = await Promise.all(files.map(file =>
+    createImageBitmap(file).then(bitmap => ({ bitmap, name:file.name, startTime:0 }))
+  ));
+
+  if(isSlideshowActive()){
+    slideshowImages = slideshowImages.concat(newItems);
+  } else if(bgImageBitmap){
+    // 単一画像モード → 追加によって複数画像スライドショーへ変換
+    slideshowImages = [{ bitmap:bgImageBitmap, name:'画像1', startTime:0 }, ...newItems];
+    bgImg.src=''; bgImageBitmap=null;
+    AmbientMotionEngine.clearMask();
+  } else {
+    slideshowImages = newItems;
+  }
+
+  if(bgVideoEl){ bgVideoEl.pause(); bgVideoEl.src=''; bgVideoEl=null; }
+  isVideoMode = false;
+  dropZone.classList.add('hidden');
+
+  if(slideshowTimesEdited){
+    // 手動調整済みなら既存の並びは崩さず、新規分だけ末尾に自然な間隔で追加
+    normalizeSlideshowTimes();
+  } else {
+    distributeSlideshowTimes();
+  }
+  updateAmbientTabState();
+  updateSlideshowUI();
+}
+
 // ── Ambient Motion（Phase 1: 雲チャンネルのみ）──────────────────
 const ambientState = {
   enabled:false, hasMask:false, brush:'cloud', brushSize:40, showMask:true,
@@ -1131,6 +1167,13 @@ dropZone.addEventListener('drop',e=>{
 fileInput.addEventListener('change',e=>{ if(e.target.files.length) loadImages([...e.target.files]); });
 document.getElementById('change-img-btn').addEventListener('click',()=>fileInput.click());
 
+const addImageInput = document.getElementById('add-image-input');
+addImageInput.addEventListener('change', e=>{
+  if(e.target.files.length) appendSlideshowImages([...e.target.files]);
+  e.target.value = '';
+});
+document.getElementById('add-img-btn').addEventListener('click',()=>addImageInput.click());
+
 // トグル
 function bindToggle(id,key,cb){
   const el=document.getElementById(id);
@@ -1221,12 +1264,22 @@ function findSlideshowIndex(time){
 }
 
 // 現在のタイムラインに応じて画像を描画し、クロスフェードも処理する。戻り値は暗転の強さ(0-1)
-function drawSlideshow(ctx, W, H){
-  const time = audioEl ? (audioEl.currentTime||0) : 0;
+let slideshowIdleTime = 0; // 再生していない間もKen Burnsと同様に動き続けるためのフォールバック時計
+function drawSlideshow(ctx, W, H, delta){
+  const totalDuration = slideshowTotalDuration();
+  let time;
+  if(audioEl && !audioEl.paused && !audioEl.ended){
+    // 再生中は音声の実位置に同期させる（歌詞などとズレないように）
+    time = audioEl.currentTime || 0;
+    slideshowIdleTime = time;
+  } else {
+    // 停止中・未再生時もKen Burnsのアイドルループと同様、常にゆっくり動き続ける
+    slideshowIdleTime += (delta||0) / 1000;
+    time = totalDuration > 0 ? (slideshowIdleTime % totalDuration) : slideshowIdleTime;
+  }
   const idx = findSlideshowIndex(time);
   const image = slideshowImages[idx];
   const nextImage = slideshowImages[idx+1];
-  const totalDuration = slideshowTotalDuration();
   const nextStart = nextImage ? nextImage.startTime : totalDuration;
   const interval = Math.max(0.1, nextStart - image.startTime);
   const progress = Math.min(1, Math.max(0, (time - image.startTime) / interval));
@@ -1382,7 +1435,7 @@ function drawMain(ts){
     applyFadeOverlay(0);
   } else if(isSlideshowActive()){
     // 複数画像：Ambient Motionは無効、自動のズーム/パン+クロスフェード+暗転のみ
-    const darkness = drawSlideshow(mctx, W, H);
+    const darkness = drawSlideshow(mctx, W, H, delta);
     applyFadeOverlay(darkness);
   } else if(bgImageBitmap){
     const iw=bgImageBitmap.width, ih=bgImageBitmap.height;
