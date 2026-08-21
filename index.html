@@ -2074,13 +2074,17 @@ function loadMediaFile(file){
     document.getElementById('av-mode-label').style.display = 'none';
     const toggle = document.getElementById('mv-audio-toggle');
     toggle.disabled = false;
-    // スライドショーが読み込まれていて、まだ手動調整されていなければ実際の音声の長さで再配分
-    audioEl.addEventListener('loadedmetadata', ()=>{
-      if(isSlideshowActive() && !slideshowTimesEdited){
+    // スライドショーが読み込まれていて、まだ手動調整されていなければ実際の音声の長さで再配分。
+    // MP3等はloadedmetadata時点でduration=Infinityになることが多く、後からdurationchangeで
+    // 正しい値に更新されるため、{once:true}にせず両方のイベントで（有限値になるまで）再配分し続ける
+    const redistributeIfNeeded = ()=>{
+      if(isSlideshowActive() && !slideshowTimesEdited && isFinite(audioEl.duration) && audioEl.duration > 0){
         distributeSlideshowTimes();
         updateSlideshowUI();
       }
-    }, {once:true});
+    };
+    audioEl.addEventListener('loadedmetadata', redistributeIfNeeded);
+    audioEl.addEventListener('durationchange', redistributeIfNeeded);
   }
 
   audioEl.addEventListener('ended', ()=>{ document.getElementById('play-btn').textContent='Play'; });
@@ -2438,6 +2442,12 @@ mvRecBtn.addEventListener('click', ()=>{
 function startMvRec(){
   if(!audioEl){ alert('Please load an audio or video file first'); return; }
   if(!isVideoMode && !bgImageBitmap && !isSlideshowActive()){ alert('Please load an image first'); return; }
+
+  // 録画直前の最終確認：durationが未確定のまま配分されていた場合に備え、可能なら再配分
+  if(isSlideshowActive() && !slideshowTimesEdited && isFinite(audioEl.duration) && audioEl.duration > 0){
+    distributeSlideshowTimes();
+    updateSlideshowUI();
+  }
 
   // 先頭に戻してから3秒カウントダウン
   audioEl.currentTime = 0;
